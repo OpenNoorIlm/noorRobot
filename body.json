@@ -1,0 +1,7 @@
+{
+  "prompt": "What is the meaning of life according to Islamic teachings?",
+  "history": [],
+  "use_tools": true,
+  "include_auto_tools": true,
+  "tool_choice": "auto"
+}

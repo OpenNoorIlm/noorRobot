@@ -1,0 +1,7 @@
+{
+  "prompt": "Use the codeExecutor tool to run this Python code and show me the output: print(42 * 2)",
+  "history": [],
+  "use_tools": true,
+  "include_auto_tools": true,
+  "tool_choice": "required"
+}

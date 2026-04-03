@@ -25,6 +25,15 @@ def list_skills():
 
 
 @tool(
+    name="list_skill",
+    description="List available tool skill directories (alias of list_skills).",
+    params={}
+)
+def list_skill():
+    return list_skills()
+
+
+@tool(
     name="get_skill",
     description="Get the contents of a skill .skill file by name.",
     params={"name": {"type": "string", "description": "Skill name"}}

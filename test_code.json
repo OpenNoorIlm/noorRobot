@@ -1,0 +1,7 @@
+{
+  "prompt": "Execute this Python code: print(2 + 3) and tell me the result",
+  "history": [],
+  "use_tools": true,
+  "include_auto_tools": true,
+  "tool_choice": "auto"
+}

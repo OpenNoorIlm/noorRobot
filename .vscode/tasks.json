@@ -1,0 +1,15 @@
+{
+	"version": "2.0.0",
+	"tasks": [
+		{
+			"label": "Start NoorRobot Server",
+			"type": "shell",
+			"command": "python run.py"
+		},
+		{
+			"label": "check_sizes",
+			"type": "shell",
+			"command": "dir app\\database\\vector\\* /s"
+		}
+	]
+}

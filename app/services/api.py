@@ -195,55 +195,45 @@ class NoorAPIHandler(BaseHTTPRequestHandler):
                 history = data.get("history", [])
                 max_tokens = int(data.get("max_tokens", 1024))
                 temperature = float(data.get("temperature", 0.7))
+                max_return_context = int(data.get("max_return_context", 4000))
                 use_tools = bool(data.get("use_tools", True))
                 if use_tools:
                     prompt_l = prompt.lower()
                     is_web_query = ("web search" in prompt_l or "search the web" in prompt_l or "news" in prompt_l)
+                    is_cmd_query = ("execute this command" in prompt_l or "run this command" in prompt_l or "execute command" in prompt_l or "run command" in prompt_l)
                     force_tool = bool(data.get("force_tool", False))
                     allowlist = data.get("tool_allowlist")
+                    logger.info("/chat: use_tools=true force_tool=%s allowlist=%s data_tool_choice=%s", force_tool, allowlist, data.get("tool_choice"))
                     if allowlist is None and is_web_query:
                         allowlist = ["search", "get_content", "get_content_by_query", "get_url_by_query"]
                         force_tool = True
-                    # Agent uses tools when helpful.
-                    # If it's a web-search query, call the search tool directly to avoid tool-call JSON failures.
-                    if allowlist and ("search" in allowlist) and is_web_query:
-                        search_fn = groq_utils.FUNCTIONS.get("search")
-                        if search_fn:
-                            query = prompt.replace("Use web search and", "").replace("use web search and", "").strip()
-                            if not query:
-                                query = prompt
-                            results = search_fn(query=query, num_results=5, provider="ddg")
-                            summary_prompt = (
-                                "Summarize these web search results in a concise, up-to-date answer:\n\n"
-                                f"Query: {query}\n\nResults: {results}"
-                            )
-                            reply = groq_utils.chat(
-                                summary_prompt,
-                                system=system,
-                                history=None,
-                                max_tokens=max_tokens,
-                                temperature=temperature,
-                            )
-                        else:
-                            reply = groq_utils.agent(
-                                prompt,
-                                system=system,
-                                max_tokens=max_tokens,
-                                include_auto_tools=bool(data.get("include_auto_tools", False)),
-                                max_tools=int(data.get("max_tools", 50)),
-                                tool_allowlist=allowlist,
-                                tool_choice="required" if force_tool else None,
-                            )
-                    else:
-                        reply = groq_utils.agent(
-                            prompt,
-                            system=system,
-                            max_tokens=max_tokens,
-                            include_auto_tools=bool(data.get("include_auto_tools", False)),
-                            max_tools=int(data.get("max_tools", 50)),
-                            tool_allowlist=allowlist,
-                            tool_choice="required" if force_tool else None,
-                        )
+                    if allowlist is None and is_cmd_query:
+                        allowlist = ["cmd_run_once"]
+                        force_tool = True
+                    # Force a specific tool when the intent is clear to reduce tool-call hallucinations.
+                    forced_choice = None
+                    if is_cmd_query:
+                        forced_choice = {"type": "function", "function": {"name": "cmd_run_once"}}
+                    elif is_web_query:
+                        forced_choice = {"type": "function", "function": {"name": "search"}}
+                    if forced_choice and allowlist is not None:
+                        name = forced_choice.get("function", {}).get("name")
+                        if name and name not in allowlist:
+                            allowlist = list(allowlist) + [name]
+                    temp_for_agent = 0.0 if forced_choice else temperature
+                    max_steps = 2 if forced_choice else int(data.get("max_steps", 6))
+                    reply = groq_utils.agent(
+                        prompt,
+                        system=system,
+                        max_tokens=max_tokens,
+                        temperature=temp_for_agent,
+                        max_return_context=max_return_context,
+                        max_steps=max_steps,
+                        include_auto_tools=bool(data.get("include_auto_tools", False)),
+                        max_tools=int(data.get("max_tools", 50)),
+                        tool_allowlist=allowlist,
+                        tool_choice=forced_choice if forced_choice else ("required" if force_tool else "auto"),
+                    )
                 else:
                     reply = groq_utils.chat(
                         prompt,
@@ -275,10 +265,13 @@ class NoorAPIHandler(BaseHTTPRequestHandler):
                 user_input = data.get("input", "")
                 system = data.get("system", f"You are {groq_utils.ASSISTANT_NAME}, an AI assistant. Use tools to complete tasks.")
                 max_tokens = int(data.get("max_tokens", 1024))
+                max_return_context = int(data.get("max_return_context", 4000))
                 reply = groq_utils.agent(
                     user_input,
                     system=system,
                     max_tokens=max_tokens,
+                    temperature=float(data.get("temperature", 0.2)),
+                    max_return_context=max_return_context,
                     include_auto_tools=bool(data.get("include_auto_tools", False)),
                     max_tools=int(data.get("max_tools", 50)),
                     tool_allowlist=data.get("tool_allowlist"),
@@ -298,11 +291,13 @@ class NoorAPIHandler(BaseHTTPRequestHandler):
                 image = data.get("image", "")
                 system = data.get("system", "You are a vision AI. Analyze the image and use tools if needed.")
                 max_tokens = int(data.get("max_tokens", 1024))
+                max_return_context = int(data.get("max_return_context", 4000))
                 reply = groq_utils.vision_agent(
                     prompt,
                     image,
                     system=system,
                     max_tokens=max_tokens,
+                    max_return_context=max_return_context,
                     include_auto_tools=bool(data.get("include_auto_tools", False)),
                     max_tools=int(data.get("max_tools", 50)),
                     tool_allowlist=data.get("tool_allowlist"),
@@ -414,18 +409,68 @@ class NoorAPIHandler(BaseHTTPRequestHandler):
         logger.info("%s - %s", self.address_string(), format % args)
 
 
-def run(host: str = "0.0.0.0", port: int = 8000):
+def run(host: str = "127.0.0.1", port: int = 8000):
     global _VECTOR_READY
     try:
         vector_store.load_or_build()
         _VECTOR_READY = True
-    except Exception:
+        logger.info("Vector store loaded successfully")
+    except Exception as e:
+        logger.error("Error during vector store setup: %s", e)
         _VECTOR_READY = False
-    server = ThreadingHTTPServer((host, int(port)), NoorAPIHandler)
-    logger.info("NoorRobot API running on http://%s:%s", host, port)
+
+    # Try a simple test first
+    logger.info("Testing basic server setup...")
     try:
+        from http.server import HTTPServer, BaseHTTPRequestHandler
+
+        class TestHandler(BaseHTTPRequestHandler):
+            def do_GET(self):
+                if self.path == "/test":
+                    self.send_response(200)
+                    self.send_header("Content-Type", "text/plain")
+                    self.end_headers()
+                    self.wfile.write(b"Server is working!")
+                else:
+                    self.send_response(404)
+                    self.end_headers()
+
+        test_server = HTTPServer((host, int(port)), TestHandler)
+        logger.info("Test server running on http://%s:%s", host, port)
+        logger.info("Test with: curl http://%s:%s/test", host, port)
+
+        # Run for 5 seconds to test
+        import time
+        start_time = time.time()
+        while time.time() - start_time < 5:
+            test_server.handle_request()
+
+        test_server.server_close()
+        logger.info("Test server completed successfully")
+
+    except Exception as e:
+        logger.error("Test server failed: %s", e)
+
+    # Now try the real server
+    try:
+        logger.info("Starting main NoorRobot API server...")
+        server = ThreadingHTTPServer((host, int(port)), NoorAPIHandler)
+        logger.info("NoorRobot API running on http://%s:%s", host, port)
+        logger.info("Server started successfully, waiting for connections...")
         server.serve_forever()
+    except Exception as e:
+        logger.error("Main server error: %s", e)
+        logger.info("Trying alternative server binding...")
+        # Try binding to localhost explicitly
+        try:
+            server = ThreadingHTTPServer(("localhost", int(port)), NoorAPIHandler)
+            logger.info("NoorRobot API running on http://localhost:%s", port)
+            server.serve_forever()
+        except Exception as e2:
+            logger.error("Alternative server binding also failed: %s", e2)
+            raise
     finally:
+        logger.info("Server shutting down")
         server.server_close()
 
 

@@ -89,6 +89,17 @@ TOOLS     = []
 FUNCTIONS = {}
 
 
+def _augment_system_for_tools(system: str) -> str:
+    hint = (
+        "When calling tools, use the tool-calling interface with valid JSON arguments. "
+        "Do not write <function=...> tags, brackets, or tool calls in plain text. "
+        "Return tool calls only via the tool-calling interface."
+    )
+    if hint.lower() in system.lower():
+        return system
+    return system.rstrip() + "\n\n" + hint
+
+
 def _select_tools(max_tools: int = 50, include_auto: bool = False, allowlist: list[str] | None = None):
     """
     Return a pruned tool list to satisfy API limits.
@@ -413,11 +424,14 @@ def agent(
     user_input,
     system=f"You are {ASSISTANT_NAME}, an AI assistant. Use tools to complete tasks.",
     max_tokens=1024,
+    temperature: float = 0.2,
+    max_steps: int = 6,
+    max_return_context: int = 4000,
     *,
     include_auto_tools: bool = False,
     max_tools: int = 50,
     tool_allowlist: list[str] | None = None,
-    tool_choice: str | None = None,
+    tool_choice: str | dict | None = None,
 ) -> str:
     """
     Agentic loop: keeps calling registered tools until the task is complete.
@@ -437,19 +451,45 @@ def agent(
 
         reply = agent("Move the robot forward")
     """
+    system = _augment_system_for_tools(system)
     client   = _get_client()   # pin one key for the whole session
     messages = [
         {"role": "system", "content": system},
         {"role": "user",   "content": user_input},
     ]
 
+    # Convert Python None/Falsey values into valid API values.
+    # Groq/OpenAI tool_choice accepts string values: none, auto, required
+    # or a dict specifying a forced function.
+    if isinstance(tool_choice, dict):
+        pass
+    else:
+        tool_choice = str(tool_choice).lower().strip() if tool_choice is not None else ""
+        if not tool_choice:
+            tool_choice = "auto" if include_auto_tools or TOOLS else "none"
+        if tool_choice not in ("none", "auto", "required"):
+            logger.warning("groq.agent: normalized invalid tool_choice to auto (original=%s)", tool_choice)
+            tool_choice = "auto"
+
+    forced_tool = isinstance(tool_choice, dict) and bool(tool_choice.get("function", {}).get("name"))
+    logger.info(
+        "groq.agent: final tool_choice=%s include_auto_tools=%s max_tools=%s allowlist=%s max_steps=%s max_return_context=%s",
+        tool_choice, include_auto_tools, max_tools, tool_allowlist, max_steps, max_return_context,
+    )
+
+    tool_steps = 0
+    tools_enabled = True
+    last_tool_output = None
     while True:
+        tools_payload = _select_tools(max_tools=max_tools, include_auto=include_auto_tools, allowlist=tool_allowlist) if (TOOLS and tools_enabled and tool_choice != "none") else None
+        logger.info("groq.agent: calling API with tool_choice=%s tools=%s", tool_choice, tools_payload)
         response = client.chat.completions.create(
             model=TEXT_MODEL,
             messages=messages,
-            tools=_select_tools(max_tools=max_tools, include_auto=include_auto_tools, allowlist=tool_allowlist) if TOOLS else None,
-            tool_choice=tool_choice if tool_choice else None,
+            tools=tools_payload,
+            tool_choice=tool_choice,
             max_tokens=max_tokens,
+            temperature=temperature,
         )
         msg = response.choices[0].message
 
@@ -458,16 +498,26 @@ def agent(
 
         messages.append(msg)
         for call in msg.tool_calls:
-            args   = json.loads(call.function.arguments)
+            args   = json.loads(call.function.arguments) if call.function.arguments else {}
             func   = FUNCTIONS.get(call.function.name)
-            output = func(**args) if func else f"Tool '{call.function.name}' not found!"
+            output = func(**args) if func and args is not None else f"Tool '{call.function.name}' not found or invalid args!"
+            last_tool_output = output
             logger.info("[Tool] 🔧 %s(%s) → %s", call.function.name, args, output)
+            content = str(output)
+            if max_return_context and len(content) > max_return_context:
+                content = content[:max_return_context] + "\n...[truncated]"
             messages.append({
                 "role":         "tool",
                 "tool_call_id": call.id,
                 "name":         call.function.name,
-                "content":      str(output),
+                "content":      content,
             })
+        tool_steps += 1
+        if forced_tool and tool_steps >= 1:
+            tool_choice = "none"
+            tools_enabled = False
+        if tool_steps >= max_steps:
+            return str(last_tool_output) if last_tool_output is not None else "⚠️ Tool loop limit reached."
 
 # ============================================
 # VISION AGENT  (image + tool calling)
@@ -478,6 +528,7 @@ def vision_agent(
     image,
     system="You are a vision AI. Analyze the image and use tools if needed.",
     max_tokens=1024,
+    max_return_context: int = 4000,
     *,
     include_auto_tools: bool = False,
     max_tools: int = 50,
@@ -499,6 +550,7 @@ def vision_agent(
     Usage:
         reply = vision_agent("What obstacle is ahead? Move accordingly.", "camera.jpg")
     """
+    system = _augment_system_for_tools(system)
     client   = _get_client()
     messages = [
         {"role": "system", "content": system},
@@ -525,15 +577,18 @@ def vision_agent(
 
         messages.append(msg)
         for call in msg.tool_calls:
-            args   = json.loads(call.function.arguments)
+            args   = json.loads(call.function.arguments) if call.function.arguments else {}
             func   = FUNCTIONS.get(call.function.name)
-            output = func(**args) if func else f"Tool '{call.function.name}' not found!"
+            output = func(**args) if func and args is not None else f"Tool '{call.function.name}' not found or invalid args!"
             logger.info("[Tool] 🔧 %s(%s) → %s", call.function.name, args, output)
+            content = str(output)
+            if max_return_context and len(content) > max_return_context:
+                content = content[:max_return_context] + "\n...[truncated]"
             messages.append({
                 "role":         "tool",
                 "tool_call_id": call.id,
                 "name":         call.function.name,
-                "content":      str(output),
+                "content":      content,
             })
 
 

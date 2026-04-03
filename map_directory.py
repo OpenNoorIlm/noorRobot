@@ -9,6 +9,116 @@ import sys
 from pathlib import Path
 
 
+
+# ── Emoji map ────────────────────────────────────────────────────────────────
+FOLDER_EMOJIS = {
+    "__pycache__"   : "🗑️ ",
+    "database"      : "🗄️ ",
+    "hadith"        : "📖 ",
+    "quran"         : "🕌 ",
+    "vector"        : "🔢 ",
+    "chats"         : "💬 ",
+    "services"      : "⚙️ ",
+    "utils"         : "🧰 ",
+    "skill"         : "🧠 ",
+    "tool"          : "🔧 ",
+    "audio_tools"   : "🎵 ",
+    "automation"    : "🤖 ",
+    "browser_control": "🌐 ",
+    "calendar"      : "📅 ",
+    "capture"       : "📸 ",
+    "cmd"           : "💻 ",
+    "codeExecutor"  : "▶️ ",
+    "csv_tools"     : "📊 ",
+    "FileSystem"    : "🗂️ ",
+    "git_tools"     : "🐙 ",
+    "gmail"         : "📧 ",
+    "grapher"       : "📈 ",
+    "http_client"   : "🌍 ",
+    "image_tools"   : "🖼️ ",
+    "network_tools" : "📡 ",
+    "notes"         : "📝 ",
+    "pdf_tools"     : "📑 ",
+    "powershell"    : "🖥️ ",
+    "process_manager": "⚙️ ",
+    "prompt_library": "💡 ",
+    "rag_ingest"    : "🔍 ",
+    "report_generator": "📋 ",
+    "system_info"   : "ℹ️ ",
+    "time"          : "⏰ ",
+    "todo"          : "✅ ",
+    "toolbox"       : "🧲 ",
+    "video_tools"   : "🎬 ",
+    "web"           : "🕸️ ",
+    "wslKaliLinux"  : "🐉 ",
+    "wslUbuntu"     : "🐧 ",
+    "ytTranscript"  : "▶️ ",
+    "zip_tools"     : "🗜️ ",
+    "toolsf"        : "🛠️ ",
+    "about-user"    : "👤 ",
+    "speak"         : "🔊 ",
+    "app"           : "🚀 ",
+}
+
+EXT_EMOJIS = {
+    ".py"           : "🐍 ",
+    ".pyc"          : "⚙️ ",
+    ".json"         : "📦 ",
+    ".txt"          : "📄 ",
+    ".md"           : "📝 ",
+    ".faiss"        : "🔢 ",
+    ".pkl"          : "🥒 ",
+    ".skill"        : "🧠 ",
+    ".env"          : "🔑 ",
+    ".gitignore"    : "🙈 ",
+    ".toml"         : "⚙️ ",
+    ".yaml"         : "⚙️ ",
+    ".yml"          : "⚙️ ",
+    ".csv"          : "📊 ",
+    ".pdf"          : "📑 ",
+    ".mp3"          : "🎵 ",
+    ".mp4"          : "🎬 ",
+    ".png"          : "🖼️ ",
+    ".jpg"          : "🖼️ ",
+    ".jpeg"         : "🖼️ ",
+    ".zip"          : "🗜️ ",
+    ".log"          : "🪵 ",
+    ".sh"           : "🖥️ ",
+    ".bat"          : "🖥️ ",
+    ".html"         : "🌐 ",
+    ".css"          : "🎨 ",
+    ".js"           : "🟨 ",
+    ".ts"           : "🔷 ",
+    ".db"           : "🗄️ ",
+    ".sqlite"       : "🗄️ ",
+    ".requirements" : "📋 ",
+}
+
+SPECIAL_FILE_EMOJIS = {
+    "requirements.txt" : "📋 ",
+    "run.py"           : "🚀 ",
+    "test.py"          : "🧪 ",
+    "map_directory.py" : "🗺️ ",
+    "__init__.py"      : "📌 ",
+    ".gitignore"       : "🙈 ",
+    "README.md"        : "📖 ",
+}
+
+
+def get_file_emoji(name: str) -> str:
+    """Return the best emoji for a file based on its name or extension."""
+    if name in SPECIAL_FILE_EMOJIS:
+        return SPECIAL_FILE_EMOJIS[name]
+    ext = Path(name).suffix.lower()
+    return EXT_EMOJIS.get(ext, "📄 ")
+
+
+def get_folder_emoji(name: str) -> str:
+    """Return the best emoji for a folder based on its name."""
+    return FOLDER_EMOJIS.get(name, "📁 ")
+# ─────────────────────────────────────────────────────────────────────────────
+
+
 def build_tree(
     root: Path,
     prefix: str = "",
@@ -32,7 +142,7 @@ def build_tree(
     for i, entry in enumerate(entries):
         is_last = i == len(entries) - 1
         connector = "└── " if is_last else "├── "
-        icon = "📁 " if entry.is_dir() else "📄 "
+        icon = get_folder_emoji(entry.name) if entry.is_dir() else get_file_emoji(entry.name)
         lines.append(prefix + connector + icon + entry.name)
 
         if entry.is_dir():

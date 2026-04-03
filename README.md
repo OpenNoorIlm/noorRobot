@@ -378,24 +378,6 @@ POST /tools/call
 POST /tools/call_batch
 ```
 
-#### Hardware Control
-```http
-POST /robot/command
-POST /robot/motor
-POST /robot/servo
-POST /robot/sensor
-POST /robot/camera
-GET  /robot/sensors
-```
-
-#### Islamic Features
-```http
-GET  /islamic/prayer-times
-GET  /islamic/qibla
-POST /islamic/quran/recite
-POST /islamic/hadith/search
-```
-
 #### Chat & Agent
 ```http
 POST /chat
@@ -406,9 +388,6 @@ POST /agent
 #### Vision
 ```http
 POST /vision
-POST /vision/robot
-POST /vision/stream
-```
 POST /vision/agent
 ```
 
@@ -421,33 +400,104 @@ POST /rag/rebuild
 
 ### Request/Response Examples
 
+#### Health Check
+```bash
+curl http://localhost:8000/health
+```
+
+Response:
+```json
+{
+  "ok": true,
+  "service": "NoorRobot API",
+  "vector_ready": true
+}
+```
+
 #### Chat Completion
 ```bash
 curl -X POST http://localhost:8000/chat \
   -H "Content-Type: application/json" \
   -d '{
-    "message": "What is the meaning of life?",
-    "history": [
-      {"role": "user", "content": "Hello"},
-      {"role": "assistant", "content": "Hi there!"}
-    ]
+    "prompt": "What is the meaning of life according to Islamic teachings?",
+    "history": [],
+    "use_tools": true
   }'
 ```
 
 Response:
 ```json
 {
-  "response": "The meaning of life is a profound philosophical question...",
-  "usage": {
-    "prompt_tokens": 150,
-    "completion_tokens": 200,
-    "total_tokens": 350
-  }
+  "reply": "According to Islamic teachings, the meaning of life..."
 }
+```
+
+#### Streaming Chat
+```bash
+curl -X POST http://localhost:8000/chat/stream \
+  -H "Content-Type: application/json" \
+  -d '{
+    "prompt": "Tell me about Islamic history",
+    "history": []
+  }'
 ```
 
 #### RAG Query
 ```bash
+curl -X POST http://localhost:8000/rag/ask \
+  -H "Content-Type: application/json" \
+  -d '{
+    "query": "What does the Quran say about patience?",
+    "history": []
+  }'
+```
+
+Response:
+```json
+{
+  "answer": "The Quran emphasizes patience (sabr) in many verses...",
+  "sources": ["quran_uthmani.json"],
+  "retrieved_chunks": 5,
+  "used_chunks": 3,
+  "retrieval_ms": 45.2,
+  "generation_ms": 234.1,
+  "used_retrieval": true
+}
+```
+
+#### Tool Execution
+```bash
+curl -X POST http://localhost:8000/tools/call \
+  -H "Content-Type: application/json" \
+  -d '{
+    "tool_name": "get_time",
+    "tool_params": {}
+  }'
+```
+
+Response:
+```json
+{
+  "result": "14:30:25"
+}
+```
+
+#### Vision Analysis
+```bash
+curl -X POST http://localhost:8000/vision \
+  -H "Content-Type: application/json" \
+  -d '{
+    "prompt": "What do you see in this image?",
+    "image": "data:image/jpeg;base64,/9j/4AAQSkZJRgABAQAAAQ..."
+  }'
+```
+
+Response:
+```json
+{
+  "reply": "I can see a robotic arm in a laboratory setting..."
+}
+```
 curl -X POST http://localhost:8000/rag/ask \
   -H "Content-Type: application/json" \
   -d '{

@@ -1,0 +1,14 @@
+Name: process_manager
+Description: Process management tools.
+Version: 1.0
+
+Commands:
+- proc_list (limit, name)
+- proc_kill (pid)
+- proc_start (command, cwd)
+- proc_info (pid)
+- proc_find (name)
+- proc_suspend (pid)
+- proc_resume (pid)
+- proc_wait (pid, timeout)
+- proc_run_capture (command, cwd, timeout)

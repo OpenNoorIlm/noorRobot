@@ -1,0 +1,34 @@
+Name: wslUbuntu
+Description: Run commands inside WSL Ubuntu.
+Version: 1.0
+
+Overview:
+This toolset runs commands inside the Ubuntu WSL distribution.
+
+Commands:
+- wsl_ubuntu_start
+  Start the Ubuntu WSL distro.
+
+- wsl_ubuntu_run
+  Run a command inside Ubuntu.
+  Parameters:
+  - command (string, required): Command to run in Ubuntu.
+  - user (string, optional): Username inside WSL.
+  - cwd (string, optional): Working directory inside WSL.
+  - timeout (integer, optional): Timeout seconds.
+
+- wsl_ubuntu_stop
+  Stop the Ubuntu WSL distro.
+
+Usage Examples:
+- wsl_ubuntu_start
+- wsl_ubuntu_run command="ls -la"
+- wsl_ubuntu_run command="sudo apt update" user="root"
+- wsl_ubuntu_stop
+
+Behavior Notes:
+- Uses `wsl -d Ubuntu` and runs via `bash -lc`.
+
+Dependencies:
+- Windows Subsystem for Linux (WSL)
+- Ubuntu distribution installed in WSL

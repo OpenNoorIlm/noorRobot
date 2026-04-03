@@ -1,0 +1,34 @@
+Name: wslKaliLinux
+Description: Run commands inside WSL Kali Linux.
+Version: 1.0
+
+Overview:
+This toolset runs commands inside the Kali Linux WSL distribution.
+
+Commands:
+- wsl_kali_start
+  Start the Kali Linux WSL distro.
+
+- wsl_kali_run
+  Run a command inside Kali Linux.
+  Parameters:
+  - command (string, required): Command to run in Kali.
+  - user (string, optional): Username inside WSL.
+  - cwd (string, optional): Working directory inside WSL.
+  - timeout (integer, optional): Timeout seconds.
+
+- wsl_kali_stop
+  Stop the Kali Linux WSL distro.
+
+Usage Examples:
+- wsl_kali_start
+- wsl_kali_run command="ls -la"
+- wsl_kali_run command="sudo apt update" user="root"
+- wsl_kali_stop
+
+Behavior Notes:
+- Uses `wsl -d kali-linux` and runs via `bash -lc`.
+
+Dependencies:
+- Windows Subsystem for Linux (WSL)
+- Kali Linux distribution installed in WSL

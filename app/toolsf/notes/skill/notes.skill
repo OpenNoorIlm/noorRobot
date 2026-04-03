@@ -1,0 +1,13 @@
+Name: notes
+Description: Note storage.
+Version: 1.0
+
+Commands:
+- note_add
+- note_list
+- note_get
+- note_delete
+- note_search
+- note_update
+- note_tag_add
+- note_tag_remove

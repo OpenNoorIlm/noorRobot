@@ -1,0 +1,15 @@
+Name: video_tools
+Description: Video utilities (ffmpeg).
+Version: 1.0
+
+Commands:
+- video_info
+- video_trim
+- video_extract_frames
+- video_convert
+- video_resize
+- video_extract_audio
+- video_add_audio
+- video_concat
+- video_set_fps
+- video_screenshot

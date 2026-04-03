@@ -1,0 +1,111 @@
+Name: time
+Description: Time utilities and scheduler for tool actions.
+Version: 1.0
+
+Overview:
+This toolset provides current time, and lets you schedule tool calls at a
+specific time or on a repeating interval.
+
+Commands:
+- time_now
+  Get current time.
+  Parameters:
+  - tz (string, optional): UTC or offset like +05:30.
+  - format (string, optional): strftime format.
+  - epoch (boolean, optional): Return Unix epoch seconds.
+
+- time_parse
+  Parse an ISO datetime into components.
+  Parameters:
+  - iso (string, required)
+
+- time_format
+  Format an ISO datetime with strftime.
+  Parameters:
+  - iso (string, required)
+  - format (string, required)
+
+- time_add
+  Add seconds to a time.
+  Parameters:
+  - iso (string, required)
+  - seconds (number, required)
+
+- time_diff
+  Difference in seconds between two times (end - start).
+  Parameters:
+  - start (string, required)
+  - end (string, required)
+
+- time_convert_tz
+  Convert a time to another timezone.
+  Parameters:
+  - iso (string, required)
+  - tz (string, required)
+
+- time_sleep
+  Sleep for N seconds (blocking).
+  Parameters:
+  - seconds (number, required)
+
+- time_schedule_once
+  Schedule a one-time tool call.
+  Parameters:
+  - tool_name (string, required): Tool to call.
+  - tool_params (object, optional): Tool params dict.
+  - run_at (string, optional): ISO datetime.
+  - delay_seconds (number, optional): Delay in seconds.
+  - tz (string, optional): Timezone for run_at.
+
+- time_schedule_interval
+  Schedule repeating tool calls.
+  Parameters:
+  - tool_name (string, required)
+  - tool_params (object, optional)
+  - interval_seconds (number, required)
+  - start_at (string, optional): ISO start time.
+  - tz (string, optional)
+  - repeat_count (integer, optional): How many times.
+  - end_at (string, optional): ISO end time.
+  - immediate (boolean, optional): Run immediately before first interval.
+
+- time_schedule_cron
+  Schedule tool calls using a cron expression.
+  Parameters:
+  - tool_name (string, required)
+  - tool_params (object, optional)
+  - cron (string, required): 5-field cron.
+  - tz (string, optional)
+
+- time_cancel
+  Cancel a scheduled job.
+  Parameters:
+  - job_id (string, required)
+
+- time_schedule_cancel
+  Cancel a scheduled job (alias of time_cancel).
+  Parameters:
+  - job_id (string, required)
+
+- time_list_jobs
+  List scheduled jobs.
+
+Usage Examples:
+- time_now
+- time_now tz="UTC" format="%Y-%m-%d %H:%M:%S"
+- time_schedule_once tool_name="gmail_send" tool_params={"to":["a@b.com"],"subject":"Hi","body":"Hello"} delay_seconds=60
+- time_schedule_interval tool_name="capture_screen" tool_params={} interval_seconds=300 repeat_count=3
+- time_schedule_cron tool_name="gmail_send" tool_params={"to":["a@b.com"],"subject":"Hi","body":"Hello"} cron="0 9 * * *" tz="UTC"
+- time_cancel job_id="<id>"
+
+Behavior Notes:
+- Scheduled jobs run in background threads.
+- Job results and errors are stored in-memory while the process runs.
+- Jobs are persisted to toolsf/time/tool/time_jobs.json and restored on startup.
+
+Dependencies:
+- Python standard library (datetime, threading)
+- croniter (optional) for cron scheduling
+
+Dependencies:
+- Python standard library (datetime, threading)

@@ -1,0 +1,11 @@
+{
+  "quran": {
+    "quran_uthmani": 6236,
+    "kanzul_iman": 6236,
+    "tafsir_jalalayn": 6236
+  },
+  "hadith": {
+    "bukhari": 7558,
+    "muslim": 2922
+  }
+}

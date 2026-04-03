@@ -1,0 +1,13 @@
+Name: system_info
+Description: System information utilities.
+Version: 1.0
+
+Commands:
+- system_info
+  Get OS/CPU/memory/disk/GPU info.
+  Parameters:
+  - include_disks (boolean, optional)
+  - include_network (boolean, optional)
+  - include_users (boolean, optional)
+  - include_env (boolean, optional)
+  - include_battery (boolean, optional)

@@ -1,0 +1,38 @@
+Name: quran
+Description: Quran tools (ayahs, surahs, tafsir: Jalalayn, Kanzul Iman).
+Version: 1.0
+
+Commands:
+- quran_get_ayah
+  Get a single ayah.
+  Parameters:
+  - surah (integer, required)
+  - ayah (integer, required)
+  - edition (string, optional)
+
+- quran_get_surah
+  Get a full surah.
+  Parameters:
+  - surah (integer, required)
+  - edition (string, optional)
+
+- quran_get_tafsir
+  Get tafsir for an ayah (Jalalayn / Kanzul Iman).
+  Parameters:
+  - surah (integer, required)
+  - ayah (integer, required)
+  - tafsir (string, optional): jalalayn|kanzuliman|custom
+
+- quran_search
+  Search Quran text (Quran.com API).
+  Parameters:
+  - query (string, required)
+  - language (string, optional)
+  - page (integer, optional)
+  - per_page (integer, optional)
+
+- quran_get_surah_list
+  Get list of all surahs.
+
+Data:
+- Uses local JSON datasets under app/database/quran/*.json

@@ -1,0 +1,13 @@
+Name: network_tools
+Description: Network utilities.
+Version: 1.0
+
+Commands:
+- net_ping
+- net_traceroute
+- net_public_ip
+- net_local_ip
+- net_dns_lookup
+- net_port_check
+- net_port_scan
+- net_http_head

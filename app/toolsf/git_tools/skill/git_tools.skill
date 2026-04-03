@@ -1,0 +1,26 @@
+Name: git_tools
+Description: Git utilities.
+Version: 1.0
+
+Commands:
+- git_status
+- git_diff
+- git_log
+- git_branch
+- git_commit
+- git_run
+- git_add
+- git_checkout
+- git_pull
+- git_push
+- git_fetch
+- git_merge
+- git_reset
+- git_show
+- git_stash
+- git_tag_list
+- git_tag_create
+- git_tag_delete
+- git_remote_list
+- git_remote_add
+- git_remote_remove

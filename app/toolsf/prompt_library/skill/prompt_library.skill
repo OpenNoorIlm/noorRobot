@@ -1,0 +1,13 @@
+Name: prompt_library
+Description: Store and retrieve prompt templates.
+Version: 1.0
+
+Commands:
+- prompt_add
+- prompt_list
+- prompt_get
+- prompt_delete
+- prompt_update
+- prompt_search
+- prompt_export
+- prompt_import

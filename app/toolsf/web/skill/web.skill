@@ -1,0 +1,171 @@
+Name: web
+Description: Basic web search and content retrieval tools.
+Version: 1.0
+
+Overview:
+This toolset provides simple web search and content fetching. It uses a
+public search endpoint (DuckDuckGo HTML) and can fetch readable text from
+URLs. These tools are best-effort and depend on network availability.
+
+Commands:
+- search
+  Search the web and return a list of results.
+  Parameters:
+  - query (string, required): Search query.
+  - num_results (integer, optional): Number of results. Default 5.
+  - provider (string, optional): Search provider: ddg or tavily. Default ddg.
+  - auto_parameters (boolean, optional): Tavily auto-config parameters.
+  - topic (string, optional): Tavily topic (general|news|finance).
+  - search_depth (string, optional): Tavily depth (basic|advanced).
+  - chunks_per_source (integer, optional): Tavily chunks per source (advanced).
+  - time_range (string, optional): Tavily time range (day|week|month|year).
+  - days (integer, optional): Tavily days back (news).
+  - start_date (string, optional): Tavily start date YYYY-MM-DD.
+  - end_date (string, optional): Tavily end date YYYY-MM-DD.
+  - include_answer (string, optional): Tavily false|basic|advanced.
+  - include_raw_content (string, optional): Tavily false|markdown|text.
+  - include_images (boolean, optional): Tavily include images.
+  - include_image_descriptions (boolean, optional): Tavily include image descriptions.
+  - include_favicon (boolean, optional): Tavily include favicon.
+  - include_domains (array, optional): Tavily include domains.
+  - exclude_domains (array, optional): Tavily exclude domains.
+  - country (string, optional): Tavily country boost.
+  - exact_match (boolean, optional): Tavily exact match.
+  Returns: List of {title, url, snippet}.
+
+- search_website
+  Search within a specific domain using a site: query.
+  Parameters:
+  - query (string, required): Search query.
+  - site (string, required): Domain, e.g. example.com.
+  - num_results (integer, optional): Number of results. Default 5.
+  - provider (string, optional): Search provider: ddg or tavily. Default ddg.
+  - auto_parameters (boolean, optional): Tavily auto-config parameters.
+  - topic (string, optional): Tavily topic (general|news|finance).
+  - search_depth (string, optional): Tavily depth (basic|advanced).
+  - chunks_per_source (integer, optional): Tavily chunks per source (advanced).
+  - time_range (string, optional): Tavily time range (day|week|month|year).
+  - days (integer, optional): Tavily days back (news).
+  - start_date (string, optional): Tavily start date YYYY-MM-DD.
+  - end_date (string, optional): Tavily end date YYYY-MM-DD.
+  - include_answer (string, optional): Tavily false|basic|advanced.
+  - include_raw_content (string, optional): Tavily false|markdown|text.
+  - include_images (boolean, optional): Tavily include images.
+  - include_image_descriptions (boolean, optional): Tavily include image descriptions.
+  - include_favicon (boolean, optional): Tavily include favicon.
+  - include_domains (array, optional): Tavily include domains.
+  - exclude_domains (array, optional): Tavily exclude domains.
+  - country (string, optional): Tavily country boost.
+  - exact_match (boolean, optional): Tavily exact match.
+
+- get_content
+  Fetch a URL and return readable text.
+  Parameters:
+  - url (string, required): URL to fetch.
+  - max_chars (integer, optional): Max characters to return. Default 4000.
+  - text_only (boolean, optional): Return only text (default true).
+  - include_title (boolean, optional): Include page title.
+  - include_links (boolean, optional): Include links list.
+  - include_images (boolean, optional): Include image URLs.
+  - selector (string, optional): CSS selector to extract.
+  - user_agent (string, optional): Custom user-agent.
+
+- get_url_by_query
+  Search and return the first result URL.
+  Parameters:
+  - query (string, required): Search query.
+  - provider (string, optional): Search provider: ddg or tavily. Default ddg.
+  - auto_parameters (boolean, optional): Tavily auto-config parameters.
+  - topic (string, optional): Tavily topic (general|news|finance).
+  - search_depth (string, optional): Tavily depth (basic|advanced).
+  - chunks_per_source (integer, optional): Tavily chunks per source (advanced).
+  - time_range (string, optional): Tavily time range (day|week|month|year).
+  - days (integer, optional): Tavily days back (news).
+  - start_date (string, optional): Tavily start date YYYY-MM-DD.
+  - end_date (string, optional): Tavily end date YYYY-MM-DD.
+  - include_answer (string, optional): Tavily false|basic|advanced.
+  - include_raw_content (string, optional): Tavily false|markdown|text.
+  - include_images (boolean, optional): Tavily include images.
+  - include_image_descriptions (boolean, optional): Tavily include image descriptions.
+  - include_favicon (boolean, optional): Tavily include favicon.
+  - include_domains (array, optional): Tavily include domains.
+  - exclude_domains (array, optional): Tavily exclude domains.
+  - country (string, optional): Tavily country boost.
+  - exact_match (boolean, optional): Tavily exact match.
+
+- get_content_by_query
+  Search and return the content of the first result.
+  Parameters:
+  - query (string, required): Search query.
+  - max_chars (integer, optional): Max characters to return. Default 4000.
+  - provider (string, optional): Search provider: ddg or tavily. Default ddg.
+  - auto_parameters (boolean, optional): Tavily auto-config parameters.
+  - topic (string, optional): Tavily topic (general|news|finance).
+  - search_depth (string, optional): Tavily depth (basic|advanced).
+  - chunks_per_source (integer, optional): Tavily chunks per source (advanced).
+  - time_range (string, optional): Tavily time range (day|week|month|year).
+  - days (integer, optional): Tavily days back (news).
+  - start_date (string, optional): Tavily start date YYYY-MM-DD.
+  - end_date (string, optional): Tavily end date YYYY-MM-DD.
+  - include_answer (string, optional): Tavily false|basic|advanced.
+  - include_raw_content (string, optional): Tavily false|markdown|text.
+  - include_images (boolean, optional): Tavily include images.
+  - include_image_descriptions (boolean, optional): Tavily include image descriptions.
+  - include_favicon (boolean, optional): Tavily include favicon.
+  - include_domains (array, optional): Tavily include domains.
+  - exclude_domains (array, optional): Tavily exclude domains.
+  - country (string, optional): Tavily country boost.
+  - exact_match (boolean, optional): Tavily exact match.
+  - text_only (boolean, optional): Normal web: return only text.
+  - include_title (boolean, optional): Normal web: include page title.
+  - include_links (boolean, optional): Normal web: include links list.
+  - include_images_web (boolean, optional): Normal web: include image URLs.
+  - selector (string, optional): Normal web: CSS selector to extract.
+  - user_agent (string, optional): Normal web: custom user-agent.
+
+- get_links
+  Fetch a URL and return links.
+  Parameters:
+  - url (string, required)
+  - user_agent (string, optional)
+
+- get_images
+  Fetch a URL and return image URLs.
+  Parameters:
+  - url (string, required)
+  - user_agent (string, optional)
+
+- fetch_json
+  Fetch JSON from a URL.
+  Parameters:
+  - url (string, required)
+  - headers (object, optional)
+  - timeout (integer, optional)
+
+- download_file
+  Download a URL to a local file.
+  Parameters:
+  - url (string, required)
+  - out (string, required)
+  - timeout (integer, optional)
+
+Usage Examples:
+- search query="latest Groq models" num_results=3
+- search_website query="installation" site="python.org"
+- get_url_by_query query="OpenAI API pricing"
+- get_content url="https://example.com/blog"
+- get_content_by_query query="what is python" max_chars=2000
+- search query="best pizza nyc" provider="tavily"
+- get_content_by_query query="latest AI news" provider="tavily"
+- get_content url="https://example.com" include_title=true include_links=true include_images=true
+- search query="today tech news" provider="tavily" topic="news" days=7 include_answer="basic"
+
+Behavior Notes:
+- Search results are best-effort and may vary.
+- Content extraction strips scripts/styles and returns plain text.
+- Large pages are truncated to max_chars.
+
+Dependencies:
+- requests (optional) for HTTP
+- beautifulsoup4 (optional) for better parsing
+- Tavily API key in app/toolsf/web/.env for provider="tavily"

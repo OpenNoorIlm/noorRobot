@@ -1,0 +1,8 @@
+Name: http_client
+Description: HTTP client utilities.
+Version: 1.0
+
+Commands:
+- http_request
+- http_head
+- http_download

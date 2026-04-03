@@ -1,0 +1,48 @@
+Name: speak
+Description: Local text-to-speech tools using the system voice engine (pyttsx3).
+Version: 1.0
+
+Overview:
+The speak toolset provides simple text-to-speech on this machine. It can list
+installed voices and speak text using a chosen voice and optional rate/volume
+settings. This runs locally (no network calls) and uses the OS voice engine.
+
+Commands:
+- list_voices
+  Returns a list of available voices with fields:
+  - id: engine-specific voice id
+  - name: human-readable name
+  - languages: list of language tags (if provided by engine)
+
+- speak
+  Speak text using an optional voice id/name and optional rate/volume.
+  Parameters:
+  - text (string, required): The text to speak.
+  - voice_id (string, optional): Voice id or voice name from list_voices.
+  - rate (integer, optional): Speech rate (engine default is usually 200).
+  - volume (number, optional): Volume from 0.0 to 1.0.
+
+Usage Examples:
+- list_voices
+
+- speak "Hello world"
+
+- speak "Good morning" voice_id="Microsoft David Desktop" rate=180 volume=0.9
+
+- speak "Bonjour" voice_id="TTS_MS_FR-FR_HORTENSE_11.0" rate=170
+
+Behavior Notes:
+- If voice_id is omitted, the engine default voice is used.
+- If rate/volume are omitted, engine defaults are used.
+- If voice_id does not match any voice, the default voice is used.
+- The command blocks until speech finishes.
+
+Error Handling:
+- If the local TTS engine (pyttsx3) is not installed, the tool will raise an error.
+- If the tools directory is missing or voices cannot be enumerated, list_voices may return an empty list.
+
+Security & Privacy:
+- Speech runs locally on this device; no text is sent over the network.
+
+Dependencies:
+- pyttsx3 (local TTS engine)

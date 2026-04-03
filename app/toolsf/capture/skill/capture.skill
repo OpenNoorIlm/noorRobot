@@ -1,0 +1,27 @@
+Name: capture
+Description: Screen capture tools (screenshot).
+Version: 1.0
+
+Overview:
+This tool allows capturing a screenshot of the current screen and saving it
+as a PNG file.
+
+Commands:
+- capture_screen
+- capture_region
+- capture_all_screens
+  Capture a screenshot of the screen.
+  Parameters:
+  - path (string, optional): Output file path. If omitted, a timestamped
+    file is created in the current working directory.
+
+Usage Examples:
+- capture_screen
+- capture_screen path="C:\\Users\\bismi\\Pictures\\screen1.png"
+
+Behavior Notes:
+- Creates parent directories if they do not exist.
+- Output format is PNG.
+
+Dependencies:
+- Pillow (PIL) for ImageGrab

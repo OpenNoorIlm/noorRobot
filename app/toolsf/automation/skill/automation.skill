@@ -1,0 +1,108 @@
+Name: automation
+Description: GUI automation wrapper around pyautogui.
+Version: 1.0
+
+Overview:
+This toolset exposes common mouse, keyboard, and screenshot actions. Every
+command supports `return_screenshot` which, when true, captures and returns a
+path to a screenshot after the action.
+It also auto-registers wrappers for every pyautogui function as
+`auto_<function_name>`, using generic args/kwargs.
+
+Commands:
+- auto_call
+  Call any pyautogui function by name (covers all features).
+  Parameters: func, args (array, optional), kwargs (object, optional), return_screenshot
+
+- auto_<pyautogui_function>
+  Auto-generated wrapper for each pyautogui function.
+  Parameters: args (array, optional), kwargs (object, optional), return_screenshot
+
+- auto_move_to
+  Move mouse to absolute coordinates.
+  Parameters: x, y, duration (optional), return_screenshot (optional)
+
+- auto_move_rel
+  Move mouse relative to current position.
+  Parameters: x, y, duration (optional), return_screenshot (optional)
+
+- auto_click
+  Click mouse (optional coordinates).
+  Parameters: x (optional), y (optional), clicks, interval, button, return_screenshot
+
+- auto_double_click
+  Double click mouse.
+  Parameters: x (optional), y (optional), interval, button, return_screenshot
+
+- auto_right_click
+  Right click mouse.
+  Parameters: x (optional), y (optional), return_screenshot
+
+- auto_drag_to
+  Drag mouse to absolute coordinates.
+  Parameters: x, y, duration, button, return_screenshot
+
+- auto_drag_rel
+  Drag mouse relative to current position.
+  Parameters: x, y, duration, button, return_screenshot
+
+- auto_scroll
+  Scroll the wheel.
+  Parameters: clicks, x (optional), y (optional), return_screenshot
+
+- auto_type
+  Type text.
+  Parameters: text, interval (optional), return_screenshot
+
+- auto_press
+  Press a key.
+  Parameters: key, presses (optional), interval (optional), return_screenshot
+
+- auto_hotkey
+  Press a key combination.
+  Parameters: keys (array), return_screenshot
+
+- auto_key_down
+  Hold a key.
+  Parameters: key, return_screenshot
+
+- auto_key_up
+  Release a key.
+  Parameters: key, return_screenshot
+
+- auto_position
+  Get current mouse position.
+  Parameters: return_screenshot
+
+- auto_screen_size
+  Get screen size.
+  Parameters: return_screenshot
+
+- auto_screenshot
+- auto_locate_on_screen
+- auto_locate_all_on_screen
+- auto_center
+- auto_alert
+- auto_confirm
+- auto_prompt
+- auto_set_pause
+- auto_set_failsafe
+- auto_wait_for_image
+  Capture a screenshot.
+  Parameters: path (optional), region (optional [left, top, width, height]), return_screenshot
+
+Usage Examples:
+- auto_call func="position" return_screenshot=true
+- auto_call func="locateOnScreen" args=["needle.png"] kwargs={"confidence":0.8}
+- auto_move_to x=200 y=300 return_screenshot=true
+- auto_click x=200 y=300 clicks=2
+- auto_hotkey keys=["ctrl","c"]
+- auto_type text="Hello" interval=0.02 return_screenshot=true
+- auto_screenshot
+
+Behavior Notes:
+- Screenshots are saved in a `screenshots` folder under the working directory.
+- Coordinates are in screen pixels.
+
+Dependencies:
+- pyautogui

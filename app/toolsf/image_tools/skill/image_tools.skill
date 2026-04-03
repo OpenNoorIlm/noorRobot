@@ -1,0 +1,13 @@
+Name: image_tools
+Description: Image utilities.
+Version: 1.0
+
+Commands:
+- image_resize
+- image_convert
+- image_crop
+- image_ocr
+- image_rotate
+- image_flip
+- image_grayscale
+- image_watermark_text

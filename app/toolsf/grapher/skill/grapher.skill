@@ -1,0 +1,12 @@
+Name: grapher
+Description: Matplotlib graphing tools.
+Version: 1.0
+
+Commands:
+- graph_line
+- graph_bar
+- graph_scatter
+- graph_hist
+- graph_pie
+- graph_box
+- graph_multi_line

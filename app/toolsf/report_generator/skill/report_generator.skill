@@ -1,0 +1,7 @@
+Name: report_generator
+Description: Markdown report generator.
+Version: 1.0
+
+Commands:
+- report_generate
+- report_generate_from_template

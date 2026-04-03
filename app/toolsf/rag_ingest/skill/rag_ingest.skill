@@ -1,0 +1,12 @@
+Name: rag_ingest
+Description: Simple RAG indexing (no embeddings).
+Version: 1.0
+
+Commands:
+- rag_ingest_folder
+- rag_search
+- rag_ingest_text
+- rag_ingest_files
+- rag_list
+- rag_delete
+- rag_clear

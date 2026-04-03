@@ -1,0 +1,100 @@
+Name: ytTranscript
+Description: YouTube transcript tools (easy-to-use wrapper).
+Version: 1.0
+
+Overview:
+This toolset provides convenient access to YouTube transcripts using the
+`youtube-transcript-api` library. You can fetch transcripts by video ID or URL,
+list available languages, and translate transcripts when supported.
+
+Commands:
+- yt_get_transcript
+  Fetch transcript segments for a video.
+  Parameters:
+  - video_id_or_url (string, required): Video ID or full URL.
+  - languages (array, optional): Preferred languages list.
+  - proxies (object, optional): Proxy dict.
+  - cookies (string, optional): Cookies file path.
+  - preserve_formatting (boolean, optional): Preserve formatting.
+
+- yt_get_transcript_text
+  Fetch transcript as plain text (joined).
+  Parameters:
+  - video_id_or_url (string, required)
+  - languages (array, optional)
+  - proxies (object, optional)
+  - cookies (string, optional)
+  - preserve_formatting (boolean, optional)
+
+- yt_list_transcripts
+  List available transcripts and languages.
+  Parameters:
+  - video_id_or_url (string, required)
+  - proxies (object, optional)
+  - cookies (string, optional)
+
+- yt_get_transcript_by_language
+  Fetch transcript for a specific language code.
+  Parameters:
+  - video_id_or_url (string, required)
+  - language_code (string, required)
+  - proxies (object, optional)
+  - cookies (string, optional)
+  - preserve_formatting (boolean, optional)
+
+- yt_translate_transcript
+  Translate a transcript to a target language.
+  Parameters:
+  - video_id_or_url (string, required)
+  - language_code (string, required): Target language code.
+  - source_language_code (string, optional): Source language code.
+  - proxies (object, optional)
+  - cookies (string, optional)
+  - preserve_formatting (boolean, optional)
+
+- yt_get_best_transcript
+  One-shot: get the best available transcript as plain text.
+  Parameters:
+  - video_id_or_url (string, required)
+  - languages (array, optional)
+  - target_language (string, optional): Auto-translate if needed.
+  - proxies (object, optional)
+  - cookies (string, optional)
+  - preserve_formatting (boolean, optional)
+
+- yt_transcript_range
+  Get transcript segments within a time range (seconds).
+  Parameters:
+  - video_id_or_url (string, required)
+  - start (number, required)
+  - end (number, required)
+  - languages (array, optional)
+  - proxies (object, optional)
+  - cookies (string, optional)
+
+- yt_transcript_search
+  Search transcript text for a keyword.
+  Parameters:
+  - video_id_or_url (string, required)
+  - query (string, required)
+  - languages (array, optional)
+  - proxies (object, optional)
+  - cookies (string, optional)
+
+Usage Examples:
+- yt_get_transcript video_id_or_url="dQw4w9WgXcQ" languages=["en"]
+- yt_get_transcript_text video_id_or_url="https://youtu.be/dQw4w9WgXcQ"
+- yt_list_transcripts video_id_or_url="dQw4w9WgXcQ"
+- yt_get_transcript_by_language video_id_or_url="dQw4w9WgXcQ" language_code="es"
+- yt_translate_transcript video_id_or_url="dQw4w9WgXcQ" language_code="fr"
+- yt_get_best_transcript video_id_or_url="dQw4w9WgXcQ" languages=["en"]
+- yt_get_best_transcript video_id_or_url="dQw4w9WgXcQ" target_language="es"
+- yt_transcript_range video_id_or_url="dQw4w9WgXcQ" start=30 end=90
+- yt_transcript_search video_id_or_url="dQw4w9WgXcQ" query="hello"
+
+Behavior Notes:
+- Video ID is extracted automatically from URL formats.
+- Translation is only available when the transcript is translatable.
+
+Dependencies:
+- youtube-transcript-api

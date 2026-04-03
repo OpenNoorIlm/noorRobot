@@ -1,0 +1,189 @@
+Name: FileSystem
+Description: Local file system tools (read/write/manage files and folders).
+Version: 1.1
+
+Overview:
+This toolset exposes common file system operations: listing directories, reading
+and writing files, editing files, creating folders, copying/moving paths,
+deleting paths, and searching with glob patterns.
+
+Commands:
+- read_file_deprecated
+  Read a text file (deprecated). Use read_text_file.
+  Parameters:
+  - path (string, required)
+
+- read_text_file
+  Read a text file.
+  Parameters:
+  - path (string, required)
+
+- read_binary_file
+  Read a binary file and return base64.
+  Parameters:
+  - path (string, required)
+
+- read_multiple_files
+  Read multiple text files.
+  Parameters:
+  - paths (array, required): List of file paths.
+
+- list_directory
+  List entries in a directory.
+  Parameters:
+  - path (string, optional): Directory path. Default '.'
+
+- list_directory_recursive
+  List entries recursively.
+  Parameters:
+  - path (string, optional)
+  - max_depth (integer, optional)
+
+- list_directory_with_sizes
+  List entries in a directory with size in bytes.
+  Parameters:
+  - path (string, optional)
+
+- directory_tree
+  Return a directory tree up to max depth.
+  Parameters:
+  - path (string, optional): Directory path. Default '.'
+  - max_depth (integer, optional): Default 3
+
+- search_files
+  Search for files matching a glob pattern.
+  Parameters:
+  - pattern (string, required): Glob pattern (e.g. '**/*.py')
+  - base (string, optional): Base directory. Default '.'
+
+- find_text_in_files
+  Find text in files under a directory.
+  Parameters:
+  - base (string, required)
+  - pattern (string, required)
+  - query (string, required)
+  - case_sensitive (boolean, optional)
+  - max_matches (integer, optional)
+
+- get_file_info
+  Get file/folder metadata.
+  Parameters:
+  - path (string, required)
+
+- list_allowed_directories
+  List directories allowed for file operations.
+
+Write/delete tools:
+- write_file
+  Write text to a file.
+  Parameters:
+  - path (string, required)
+  - content (string, required)
+  - overwrite (boolean, optional): Default true
+
+- write_binary_file
+  Write a binary file from base64.
+  Parameters:
+  - path (string, required)
+  - content_b64 (string, required)
+  - overwrite (boolean, optional): Default true
+
+- edit_file
+  Replace text in a file.
+  Parameters:
+  - path (string, required)
+  - search (string, required)
+  - replace (string, required)
+  - count (integer, optional)
+
+- head_file
+  Get first N lines of a text file.
+  Parameters:
+  - path (string, required)
+  - lines (integer, optional)
+
+- tail_file
+  Get last N lines of a text file.
+  Parameters:
+  - path (string, required)
+  - lines (integer, optional)
+
+- create_directory
+  Create a directory (including parents).
+  Parameters:
+  - path (string, required)
+  - exist_ok (boolean, optional): Default true
+
+- move_file
+  Move/rename a file or directory.
+  Parameters:
+  - src (string, required)
+  - dst (string, required)
+  - overwrite (boolean, optional): Default false
+
+- delete_path
+  Delete a file or directory.
+  Parameters:
+  - path (string, required)
+  - recursive (boolean, optional): Default false
+
+Other tools:
+- copy_file_to_claude
+  Copy a file to a local Claude drop folder.
+  Parameters:
+  - src (string, required)
+  - dst_name (string, optional)
+  - overwrite (boolean, optional): Default false
+
+- copy_path
+  Copy a file or directory.
+  Parameters:
+  - src (string, required)
+  - dst (string, required)
+  - overwrite (boolean, optional): Default false
+
+Other utility:
+- exists
+  Check if a path exists.
+  Parameters:
+  - path (string, required)
+
+- stat
+  Get file or folder metadata.
+  Parameters:
+  - path (string, required)
+
+- file_hash
+  Compute a file hash.
+  Parameters:
+  - path (string, required)
+  - algorithm (string, optional)
+
+- fs_search
+  Alias for search_files (filesystem).
+
+Usage Examples:
+- list_directory
+- list_directory path="C:\\Users\\bismi"
+- read_text_file path="C:\\temp\\notes.txt"
+- read_multiple_files paths=["C:\\temp\\a.txt","C:\\temp\\b.txt"]
+- write_file path="C:\\temp\\hello.txt" content="Hello"
+- edit_file path="C:\\temp\\hello.txt" search="Hello" replace="Hi"
+- create_directory path="C:\\temp\\newfolder"
+- copy_path src="C:\\temp\\hello.txt" dst="C:\\temp\\hello_copy.txt"
+- move_file src="C:\\temp\\hello_copy.txt" dst="C:\\temp\\moved.txt" overwrite=true
+- delete_path path="C:\\temp\\moved.txt"
+- search_files pattern="**/*.py" base="C:\\Users\\bismi\\Downloads\\noorRobot"
+- fs_search pattern="**/*.py" base="C:\\Users\\bismi\\Downloads\\noorRobot"
+- copy_file_to_claude src="C:\\temp\\notes.txt" dst_name="notes_copy.txt"
+
+Behavior Notes:
+- Paths are resolved to absolute paths.
+- Text files are read/written using UTF-8.
+- For folders, delete_path requires recursive=true to remove contents.
+
+Security:
+- Commands execute locally with the same permissions as the host process.
+
+Dependencies:
+- Python standard library (pathlib, shutil)

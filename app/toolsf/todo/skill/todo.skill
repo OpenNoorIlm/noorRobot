@@ -1,0 +1,13 @@
+Name: todo
+Description: Simple todo list.
+Version: 1.0
+
+Commands:
+- todo_add
+- todo_list
+- todo_done
+- todo_delete
+- todo_update
+- todo_search
+- todo_list_filter
+- todo_clear_done

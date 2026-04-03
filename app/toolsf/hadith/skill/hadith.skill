@@ -1,0 +1,24 @@
+Name: hadith
+Description: Hadith tools (Bukhari/Muslim).
+Version: 1.0
+
+Commands:
+- hadith_get
+  Get a hadith by collection and number.
+  Parameters:
+  - collection (string, required): bukhari|muslim
+  - number (integer, required)
+
+- hadith_search
+  Search hadith in a collection.
+  Parameters:
+  - collection (string, required)
+  - query (string, required)
+  - page (integer, optional)
+  - per_page (integer, optional)
+
+- hadith_collections
+  List available collections from API source.
+
+Data:
+- Uses local JSON datasets under app/database/hadith/*.json

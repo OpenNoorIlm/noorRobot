@@ -1,0 +1,58 @@
+Name: codeExecutor
+Description: Execute code snippets in common local languages and shells.
+Version: 1.0
+
+Overview:
+This toolset runs code in a selected language and returns stdout/stderr and
+exit code. It is useful for quick calculations, scripts, and shell commands.
+
+Commands:
+- list_languages
+  List supported languages.
+
+- execute_code
+  Execute a code snippet.
+  Parameters:
+  - language (string, required): python | java | c | cpp | js | html | css | cmd | powershell
+  - code (string, required): The code to execute.
+  - args (array, optional): Command-line args.
+  - stdin (string, optional): stdin content.
+  - timeout (integer, optional): Timeout in seconds. Default 10.
+  - cwd (string, optional): Working directory.
+  - env (object, optional): Environment variables to add/override.
+
+- execute_file
+  Execute a code file by language.
+  Parameters:
+  - language (string, required): python | java | c | cpp | js | cmd | powershell
+  - path (string, required): File path.
+  - args (array, optional): Command-line args.
+  - stdin (string, optional): stdin content.
+  - timeout (integer, optional): Timeout in seconds. Default 10.
+  - cwd (string, optional): Working directory.
+  - env (object, optional): Environment variables to add/override.
+
+Usage Examples:
+- list_languages
+- execute_code language="python" code="print('hi')"
+- execute_code language="java" code="public class Main{public static void main(String[]a){System.out.println(\"hi\");}}"
+- execute_code language="c" code="#include <stdio.h>\nint main(){printf(\"hi\\n\");return 0;}"
+- execute_code language="cpp" code="#include <iostream>\nint main(){std::cout<<\"hi\\n\";}"
+- execute_code language="js" code="console.log('hi')"
+- execute_code language="html" code="<h1>Hello</h1>"
+- execute_code language="css" code="body{background:#eee;}"
+- execute_code language="cmd" code="dir"
+- execute_code language="powershell" code="$PSVersionTable"
+- execute_file language="python" path="script.py" args=["--help"]
+
+Behavior Notes:
+- Python/Java/C/C++/JS are executed if the required compiler/runtime exists in PATH.
+- HTML/CSS are saved to a temporary file and the path is returned.
+- Output includes stdout, stderr, and exit code.
+
+Dependencies:
+- Python interpreter available in PATH for python execution
+- Java (javac/java) for Java execution
+- C/C++ compiler (cl or gcc/g++) for C/C++ execution
+- Node.js for JS execution
+- Windows cmd.exe and powershell.exe

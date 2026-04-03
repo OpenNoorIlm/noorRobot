@@ -1,0 +1,14 @@
+Name: audio_tools
+Description: Audio utilities.
+Version: 1.0
+
+Commands:
+- audio_info
+- audio_trim
+- audio_convert
+- audio_volume
+- audio_concat
+- audio_fade
+- audio_speed
+- audio_mix
+- audio_split

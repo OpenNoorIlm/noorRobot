@@ -1,0 +1,8 @@
+Name: pdf_tools
+Description: PDF utilities.
+Version: 1.0
+
+Commands:
+- pdf_extract_text
+- pdf_merge
+- pdf_split

@@ -1,0 +1,149 @@
+Name: gmail
+Description: Send and receive Gmail via SMTP/IMAP using 16-digit app password.
+Version: 1.0
+
+Overview:
+This toolset provides Gmail email send and fetch capabilities using an app
+password (16-digit). It supports attachments, HTML, search, and basic mailbox
+management.
+
+Commands:
+- gmail_send
+  Send an email via Gmail SMTP.
+  Parameters:
+  - to (array, required): Recipient list.
+  - subject (string, required)
+  - body (string, required)
+  - html (string, optional)
+  - cc (array, optional)
+  - bcc (array, optional)
+  - reply_to (string, optional)
+  - from_email (string, optional): Defaults to env GMAIL_USER.
+  - attachments (array, optional): File paths.
+  - headers (object, optional): Extra headers.
+  - smtp_host (string, optional): Default smtp.gmail.com.
+  - smtp_port (integer, optional): Default 465.
+  - timeout (integer, optional): Default 20.
+
+- gmail_list_folders
+  List Gmail folders/labels via IMAP.
+  Parameters:
+  - email (string, optional): Defaults to env GMAIL_USER.
+  - imap_host (string, optional): Default imap.gmail.com.
+  - timeout (integer, optional): Default 20.
+
+- gmail_fetch
+  Fetch messages via IMAP.
+  Parameters:
+  - email (string, optional)
+  - folder (string, optional): Default INBOX.
+  - query (string, optional): IMAP search query.
+  - unseen_only (boolean, optional)
+  - since (string, optional): YYYY-MM-DD
+  - before (string, optional): YYYY-MM-DD
+  - limit (integer, optional): Default 10.
+  - mark_read (boolean, optional)
+  - include_body (boolean, optional): Default true.
+  - include_html (boolean, optional): Default false.
+  - include_attachments (boolean, optional): Default false.
+  - download_dir (string, optional): Save attachments to this dir.
+  - imap_host (string, optional): Default imap.gmail.com.
+  - timeout (integer, optional): Default 20.
+
+- gmail_fetch_headers
+  Fetch message headers only.
+  Parameters:
+  - email (string, optional)
+  - folder (string, optional)
+  - query (string, optional)
+  - limit (integer, optional)
+  - imap_host (string, optional)
+  - timeout (integer, optional)
+
+- gmail_get_raw
+  Fetch raw RFC822 message by id.
+  Parameters:
+  - email (string, optional)
+  - folder (string, optional)
+  - msg_id (string, required)
+  - imap_host (string, optional)
+  - timeout (integer, optional)
+
+- gmail_mark_read
+  Mark a message as read.
+  Parameters:
+  - email (string, optional)
+  - folder (string, optional)
+  - msg_id (string, required)
+  - imap_host (string, optional)
+  - timeout (integer, optional)
+
+- gmail_mark_unread
+  Mark a message as unread.
+  Parameters:
+  - email (string, optional)
+  - folder (string, optional)
+  - msg_id (string, required)
+  - imap_host (string, optional)
+  - timeout (integer, optional)
+
+- gmail_delete
+  Delete a message (moves to Trash).
+  Parameters:
+  - email (string, optional)
+  - folder (string, optional)
+  - msg_id (string, required)
+  - imap_host (string, optional)
+  - timeout (integer, optional)
+
+- gmail_move
+  Move a message to another folder/label.
+  Parameters:
+  - email (string, optional)
+  - folder (string, optional)
+  - msg_id (string, required)
+  - target_folder (string, required)
+  - imap_host (string, optional)
+  - timeout (integer, optional)
+
+Usage Examples:
+- gmail_send to=["a@example.com"] subject="Hello" body="Hi" \
+  app_password="xxxx xxxx xxxx xxxx"
+- gmail_send_later send_at="2026-04-01T18:30:00Z" to=["a@example.com"] subject="Later" body="Hi"
+- gmail_send_pending
+- gmail_fetch unseen_only=true limit=5
+- gmail_list_folders
+
+Behavior Notes:
+- Requires Gmail app password (16-digit) and Gmail IMAP enabled.
+- Attachments are saved if download_dir is provided.
+- Scheduled emails are stored locally under toolsf/gmail/tool/queue.
+
+Dependencies:
+- Python standard library (smtplib, imaplib, email)
+- python-dotenv (optional) for loading .env
+- gmail_send_later
+  Schedule an email for later (stores locally if not due).
+  Parameters:
+  - send_at (string, required): ISO 8601 datetime.
+  - to (array, required)
+  - subject (string, required)
+  - body (string, required)
+  - html (string, optional)
+  - cc (array, optional)
+  - bcc (array, optional)
+  - reply_to (string, optional)
+  - from_email (string, optional)
+  - attachments (array, optional)
+  - headers (object, optional)
+  - smtp_host (string, optional)
+  - smtp_port (integer, optional)
+  - timeout (integer, optional)
+
+- gmail_send_pending
+  Send any scheduled emails that are due.
+  Parameters:
+  - from_email (string, optional)
+  - smtp_host (string, optional)
+  - smtp_port (integer, optional)
+  - timeout (integer, optional)

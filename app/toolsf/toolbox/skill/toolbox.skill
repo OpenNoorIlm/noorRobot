@@ -1,0 +1,8 @@
+Name: toolbox
+Description: Generic tool invoker.
+Version: 1.0
+
+Commands:
+- tool_call
+- tool_list
+- tool_info

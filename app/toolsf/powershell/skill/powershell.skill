@@ -1,0 +1,49 @@
+Name: powershell
+Description: Persistent Windows PowerShell session (native-like).
+Version: 1.0
+
+Overview:
+This toolset opens a persistent Windows PowerShell session, runs commands
+inside that same session, and closes it. This is useful for PowerShell
+pipelines and commands that depend on session state (current directory,
+variables, loaded modules, etc.).
+
+Commands:
+- ps_open
+  Opens a new persistent PowerShell session. If already open, it keeps the existing session.
+
+- ps_run
+  Runs a command in the current PowerShell session.
+  Parameters:
+  - command (string, required): The PowerShell command line to execute.
+  - timeout (integer, optional): Max seconds to wait for output. Default 30.
+
+- ps_close
+  Terminates the current PowerShell session.
+
+- ps_run_once
+  Run a single PowerShell command without opening a persistent session.
+  Parameters:
+  - command (string, required)
+  - timeout (integer, optional)
+
+Usage Examples:
+- ps_open
+- ps_run "Get-ChildItem"
+- ps_run "cd C:\\Users"
+- ps_run "Get-Process | Select-Object -First 3"
+- ps_run "$env:TEST='ok'; echo $env:TEST"
+- ps_close
+- ps_run_once "Get-ChildItem"
+
+Behavior Notes:
+- The session is stateful: `cd`, `$env:`, variables, and modules persist until `close`.
+- Output includes both stdout and stderr.
+- If the command produces no output, `run` returns an empty string.
+- If the command does not finish before timeout, `[timeout]` is appended.
+
+Security:
+- Commands execute locally with the same permissions as the host process.
+
+Dependencies:
+- Windows PowerShell (`powershell.exe`)

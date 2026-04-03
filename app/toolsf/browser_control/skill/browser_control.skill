@@ -1,0 +1,13 @@
+Name: browser_control
+Description: Browser utilities.
+Version: 1.0
+
+Commands:
+- browser_open
+- browser_screenshot
+- browser_screenshot_adv
+- browser_get_html
+- browser_pdf
+- browser_eval
+- browser_click
+- browser_fill

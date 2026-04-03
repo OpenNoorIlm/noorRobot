@@ -1,0 +1,47 @@
+Name: cmd
+Description: Persistent Windows Command Prompt session (native-like).
+Version: 1.0
+
+Overview:
+This toolset opens a persistent Windows `cmd.exe` session, runs commands inside
+that same session, and closes it. This is useful for commands that depend on
+session state (current directory, environment variables, etc.).
+
+Commands:
+- cmd_open
+  Opens a new persistent cmd session. If already open, it keeps the existing session.
+
+- cmd_run
+  Runs a command in the current cmd session.
+  Parameters:
+  - command (string, required): The command line to execute.
+  - timeout (integer, optional): Max seconds to wait for output. Default 30.
+
+- cmd_close
+  Terminates the current cmd session.
+
+- cmd_run_once
+  Run a single command without opening a persistent session.
+  Parameters:
+  - command (string, required)
+  - timeout (integer, optional)
+
+Usage Examples:
+- cmd_open
+- cmd_run "dir"
+- cmd_run "cd C:\\Users"
+- cmd_run "echo Hello" timeout=5
+- cmd_close
+- cmd_run_once "dir"
+
+Behavior Notes:
+- The session is stateful: `cd`, `set`, and other changes persist until `close`.
+- Output includes both stdout and stderr.
+- If the command produces no output, `run` returns an empty string.
+- If the command does not finish before timeout, `[timeout]` is appended.
+
+Security:
+- Commands execute locally with the same permissions as the host process.
+
+Dependencies:
+- Windows `cmd.exe`

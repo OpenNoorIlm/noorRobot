@@ -1,0 +1,13 @@
+Name: csv_tools
+Description: CSV utilities.
+Version: 1.0
+
+Commands:
+- csv_read
+- csv_write
+- csv_filter
+- csv_stats
+- csv_select_columns
+- csv_sort
+- csv_to_json
+- csv_from_json

@@ -1,0 +1,10 @@
+Name: zip_tools
+Description: Zip file utilities.
+Version: 1.0
+
+Commands:
+- zip_create
+- zip_extract
+- zip_list
+- zip_info
+- zip_add

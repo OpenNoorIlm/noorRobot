@@ -24,11 +24,15 @@ except Exception:  # pragma: no cover - optional dependency
 def _load_env():
     if load_dotenv is None:
         return
-    base = Path(__file__).resolve().parents[2]
+    tool_dir = Path(__file__).resolve().parent        # .../gmail/tool
+    gmail_dir = tool_dir.parent                       # .../gmail
+    toolsf_dir = gmail_dir.parent                     # .../toolsf
+    app_dir = toolsf_dir.parent                       # .../app
     candidates = [
-        base / ".env",
-        base / "utils" / ".env",
-        base / "toolsf" / "gmail" / ".env",
+        gmail_dir / ".env",           # app/toolsf/gmail/.env  (preferred)
+        toolsf_dir / ".env",          # app/toolsf/.env
+        app_dir / ".env",             # app/.env
+        app_dir / "utils" / ".env",   # app/utils/.env
     ]
     for p in candidates:
         if p.exists():

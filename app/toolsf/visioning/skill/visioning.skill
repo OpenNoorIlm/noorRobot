@@ -1,0 +1,84 @@
+Name: vision
+Description: Start, stop, and query the YOLOv8 real-time object detection pipeline running on the ESP32-CAM MJPEG stream.
+Version: 1.0
+
+Overview:
+This toolset wraps visioning.py (YOLOv8 cinematic detector) so the robot agent can
+start and stop the vision pipeline, query which objects are currently visible, sweep
+the camera to a target angle before scanning, capture snapshots, and check pipeline
+status. Always call start_vision before any other vision tool. Call stop_vision when
+the robot no longer needs vision to free resources.
+
+Commands:
+- start_vision
+  Start the YOLOv8 object-detection pipeline on the ESP32-CAM MJPEG stream.
+  Parameters:
+  - ip (string, optional): ESP32-CAM IP address. Default 192.0.242.3.
+  - port (integer, optional): MJPEG stream port. Default 8082.
+  - model (string, optional): YOLOv8 variant — yolov8n / yolov8s / yolov8m / yolov8l / yolov8x — or a path to a .pt / .onnx file. Default yolov8n.
+  - alpha (number, optional): Box-smoothing factor 0.1 (very smooth) to 1.0 (instant). Default 0.45.
+
+- stop_vision
+  Stop the running detection pipeline and free all resources.
+
+- get_detected_objects
+  Return every object currently tracked in the camera frame with class name,
+  confidence score, bounding-box corners, and centre pixel coordinates.
+
+- is_object_visible
+  Check whether a specific COCO class is currently in frame.
+  Parameters:
+  - class_name (string, required): COCO class to look for, e.g. person, cat, bottle.
+
+- scan_objects_at_angle
+  Move the camera servos to the given pan/tilt angles, wait for the scene to
+  settle, then return detected objects at that angle in one call.
+  Parameters:
+  - angleX (integer, optional): Horizontal pan angle 0–180. Default 90 (centre).
+  - angleY (integer, optional): Vertical tilt angle 0–180. Default 90 (centre).
+  - settle_ms (integer, optional): Milliseconds to wait after moving before reading detections. Default 600.
+
+- save_vision_snapshot
+  Capture the current raw camera frame and save it as a JPEG file on disk.
+  Parameters:
+  - filename (string, optional): Output path, e.g. snapshot_001.jpg. Defaults to a timestamped name.
+
+- get_vision_snapshot_base64
+  Return the current camera frame as a base64-encoded JPEG data-URI, ready to
+  pass directly to a vision-capable LLM.
+
+- get_vision_status
+  Return a one-line status: running / stopped, stream URL, and object count.
+
+Usage Examples:
+- start_vision
+- start_vision ip="192.168.1.55" port=8082 model="yolov8s" alpha=0.4
+- get_detected_objects
+- is_object_visible class_name="person"
+- scan_objects_at_angle angleX=45 angleY=90
+- scan_objects_at_angle angleX=135 angleY=70 settle_ms=800
+- save_vision_snapshot
+- save_vision_snapshot filename="entrance_001.jpg"
+- get_vision_snapshot_base64
+- get_vision_status
+- stop_vision
+
+Behavior Notes:
+- start_vision must be called before get_detected_objects, is_object_visible,
+  scan_objects_at_angle, save_vision_snapshot, get_vision_snapshot_base64, or
+  get_vision_status — they all return an error string otherwise.
+- Only one pipeline session runs at a time. Call stop_vision before calling
+  start_vision again with different parameters.
+- scan_objects_at_angle sends the servo move to the ESP32-CAM on port 2674
+  (the legacy servo-control port) then reads detections from the running pipeline.
+- Detections are smoothed with exponential moving average controlled by alpha.
+  Lower alpha = smoother boxes but more lag; higher alpha = snappier but jittery.
+- get_vision_snapshot_base64 returns the raw camera frame with no YOLO overlay,
+  suitable for a second-opinion vision LLM call.
+
+Dependencies:
+- visioning.py (same directory)
+- ultralytics (pip install ultralytics)
+- opencv-python (pip install opencv-python)
+- torch / torchvision (pip install torch torchvision)
+- ESP32-CAM flashed with esp32-cam.ino serving /stream on port 8082

@@ -29,7 +29,6 @@ def _import_toolsf():
         except Exception as exc:
             logging.getLogger("NoorRobot.Run").exception("Failed to import %s: %s", tool_file, exc)
 
-
 def _datasets_ready() -> bool:
     base = Path(__file__).resolve().parent / "app" / "database"
     q = base / "quran" / "quran_uthmani.json"
@@ -45,6 +44,7 @@ def main():
         datefmt="[%X]",
         handlers=[RichHandler(rich_tracebacks=True)],
     )
+
     log = logging.getLogger("NoorRobot.Run")
     log.info("%sNoorRobot starting...%s", Fore.CYAN, Style.RESET_ALL)
 

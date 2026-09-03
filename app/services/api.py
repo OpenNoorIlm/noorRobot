@@ -171,7 +171,8 @@ class NoorAPIHandler(BaseHTTPRequestHandler):
             )
 
         if path in ("/v1/models", "/models"):
-            return _json_response(self, {"object": "list", "data": [{"id": groq_utils.TEXT_MODEL, "object": "model", "owned_by": "noor"}]})
+            models = groq_utils.list_models()
+            return _json_response(self, {"object": "list", "data": models})
 
         if path == "/memory/faces":
             return _json_response(self, {"data": list_faces()})
@@ -278,6 +279,29 @@ class NoorAPIHandler(BaseHTTPRequestHandler):
                 if not isinstance(messages, list) or not messages:
                     return _json_response(self, {"error": {"message": "messages must be a non-empty array", "type": "invalid_request_error"}}, status=400)
                 if data.get("stream"):
+                    if data.get("tools") or data.get("use_tools", True):
+                        history = [message for message in messages[:-1] if message.get("role") != "system"]
+                        system = next((message.get("content", "") for message in messages if message.get("role") == "system"), f"You are {groq_utils.ASSISTANT_NAME}, an AI assistant. Use tools to complete tasks.")
+                        user_message = messages[-1].get("content", "")
+                        reply = groq_utils.agent(
+                            user_message,
+                            system=system,
+                            history=history,
+                            model=data.get("model"),
+                            max_tokens=int(data.get("max_tokens", 1024)),
+                            temperature=float(data.get("temperature", 0.7)),
+                            max_steps=int(data.get("max_steps", 6)),
+                        )
+                        _send_sse_headers(self)
+                        _sse_write(self, json.dumps({
+                            "id": "noor-chat-completion",
+                            "object": "chat.completion.chunk",
+                            "created": int(time.time()),
+                            "model": data.get("model") or groq_utils.TEXT_MODEL,
+                            "choices": [{"index": 0, "delta": {"role": "assistant", "content": reply}, "finish_reason": "stop"}],
+                        }))
+                        _sse_write(self, "[DONE]")
+                        return
                     _send_sse_headers(self)
                     for token in groq_utils.stream_chat(
                         messages,
@@ -295,11 +319,17 @@ class NoorAPIHandler(BaseHTTPRequestHandler):
                             }))
                     _sse_write(self, "[DONE]")
                     return
-                reply = groq_utils.complete(
-                    messages,
+                history = [message for message in messages[:-1] if message.get("role") != "system"]
+                system = next((message.get("content", "") for message in messages if message.get("role") == "system"), f"You are {groq_utils.ASSISTANT_NAME}, an AI assistant. Use tools to complete tasks.")
+                user_message = messages[-1].get("content", "")
+                reply = groq_utils.agent(
+                    user_message,
+                    system=system,
+                    history=history,
+                    model=data.get("model"),
                     max_tokens=int(data.get("max_tokens", 1024)),
                     temperature=float(data.get("temperature", 0.7)),
-                    model=data.get("model"),
+                    max_steps=int(data.get("max_steps", 6)),
                 )
                 return _json_response(self, {
                     "id": "noor-chat-completion",
@@ -536,7 +566,7 @@ class NoorAPIHandler(BaseHTTPRequestHandler):
         logger.info("%s - %s", self.address_string(), format % args)
 
 
-def run(host: str = "127.0.0.1", port: int = 8000):
+def run(host: str = "0.0.0.0", port: int = 8000):
     global _VECTOR_READY
     try:
         vector_store.load_or_build()

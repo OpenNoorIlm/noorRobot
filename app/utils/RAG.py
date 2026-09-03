@@ -26,7 +26,7 @@ import os
 from dataclasses import dataclass, field
 from typing import AsyncIterator, List, Optional, Tuple
 
-from groq import Groq
+from app.utils.groq import TEXT_MODEL, get_client
 from app.utils.vectorStore import vector_store, TOP_K
 
 logger = logging.getLogger("NoorRobot.RAG")
@@ -35,8 +35,7 @@ logger = logging.getLogger("NoorRobot.RAG")
 # CONFIGURATION
 # ---------------------------------------------------------------------------
 
-GROQ_MODEL          = os.getenv("GROQ_MODEL",       "llama-3.3-70b-versatile")
-GROQ_API_KEY        = os.getenv("GROQ_API_KEY",      "")
+AI_MODEL            = os.getenv("AI_MODEL", TEXT_MODEL)
 MAX_CONTEXT_CHARS   = int(os.getenv("RAG_MAX_CTX",   "6000"))   # chars in retrieved context
 MAX_HISTORY_TURNS   = int(os.getenv("RAG_HIST_TURNS","8"))      # past turns to keep
 RETRIEVAL_THRESHOLD = float(os.getenv("RAG_THRESHOLD","0.25"))  # min relevance score (0-1)
@@ -253,15 +252,15 @@ class RAGService:
     """
 
     def __init__(self):
-        self._client: Optional[Groq] = None
+        self._client = None
 
     # ------------------------------------------------------------------
     # LAZY CLIENT INIT
     # ------------------------------------------------------------------
 
-    def _groq(self) -> Groq:
+    def _groq(self):
         if self._client is None:
-            self._client = Groq(api_key=GROQ_API_KEY or None)
+            self._client = get_client()
             logger.debug("Groq client initialized")
         return self._client
 
@@ -331,7 +330,7 @@ class RAGService:
         t0 = time.perf_counter()
         try:
             resp = self._groq().chat.completions.create(
-                model       = GROQ_MODEL,
+                model       = AI_MODEL,
                 messages    = messages,
                 temperature = temperature,
                 max_tokens  = max_tokens,
@@ -386,7 +385,7 @@ class RAGService:
 
         try:
             stream = self._groq().chat.completions.create(
-                model       = GROQ_MODEL,
+                model       = AI_MODEL,
                 messages    = messages,
                 temperature = temperature,
                 max_tokens  = max_tokens,

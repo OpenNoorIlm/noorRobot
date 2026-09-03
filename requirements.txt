@@ -7,11 +7,13 @@ Pillow
 pytesseract
 pydub
 matplotlib
+opencv-python
+ultralytics
 playwright
 croniter
 youtube-transcript-api
 datasets
-groq
+openai
 pyttsx3
 langchain-text-splitters
 langchain-huggingface

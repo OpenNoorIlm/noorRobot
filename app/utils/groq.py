@@ -1,18 +1,18 @@
 """
-groq.py  —  NoorRobot Groq Client & LLM Utilities
+ai_client.py  —  NoorRobot OpenAI-Compatible Client & LLM Utilities
 ===================================================
 Provides:
-  - Multi-key rotation (GROQ_API_KEY, GROQ_API_KEY_2, GROQ_API_KEY_3 from app/utils/.env)
+    - OpenAI-compatible client configuration from app/utils/.env
   - @tool decorator for registering function-calling tools
   - chat()         — simple one-shot text completion
   - stream_chat()  — streaming text completion (used by RAG.py)
   - vision()       — image + text completion
   - agent()        — agentic loop with tool calling
   - vision_agent() — vision + tool calling combined
-  - get_client()   — public key-rotating Groq client (used by RAGService)
+    - get_client()   — public OpenAI-compatible client (used by RAGService)
 
 RAG.py integration:
-    from app.utils.groq import get_client, GROQ_MODEL, TEXT_MODEL, VISION_MODEL
+    from app.utils.groq import get_client, TEXT_MODEL, VISION_MODEL
 """
 
 import os
@@ -21,11 +21,11 @@ import base64
 import random
 import logging
 import functools
-from groq import Groq
+from openai import OpenAI
 from dotenv import load_dotenv
 # NOTE: Do not import app.skills/tools/speak here to avoid circular imports.
 
-logger = logging.getLogger("NoorRobot.Groq")
+logger = logging.getLogger("NoorRobot.AI")
 
 # ============================================
 # LOAD API KEYS FROM .env
@@ -37,57 +37,39 @@ load_dotenv(_ENV_PATH)
 ASSISTANT_NAME     = os.getenv("ASSISTANT_NAME",     "Noor")
 JARVIS_USER_TITLE  = os.getenv("JARVIS_USER_TITLE",  "User")
 
-def _load_api_keys():
-    """Finds GROQ_API_KEY, GROQ_API_KEY_2, GROQ_API_KEY_3 from app/utils/.env"""
-    keys = []
-    base = os.environ.get("GROQ_API_KEY")
-    if base:
-        keys.append(base)
-    for i in range(2, 10):
-        key = os.environ.get(f"GROQ_API_KEY_{i}")
-        if key:
-            keys.append(key)
-    if not keys:
-        raise ValueError("❌ No GROQ_API_KEY found in app/utils/.env! Add at least GROQ_API_KEY=your_key")
-    return keys
+AI_BASE_URL = os.getenv("AI_BASE_URL", "https://unorphaned-kate-suprasegmental.ngrok-free.dev/v1").rstrip("/")
+AI_API_KEY = os.getenv("AI_API_KEY", "")
+AI_MODELS = [model.strip() for model in os.getenv("AI_MODELS", "").split(",") if model.strip()]
+AI_MODEL = os.getenv("AI_MODEL", AI_MODELS[0] if AI_MODELS else "")
+VISION_MODEL = os.getenv("AI_VISION_MODEL", AI_MODEL)
+TEXT_MODEL = AI_MODEL
 
-API_KEYS = _load_api_keys()
-logger.info("Loaded %d API key(s)", len(API_KEYS))
+class _AIClient:
+    """Small facade for any OpenAI-compatible model server."""
 
-class _FailoverClient:
-    """Small Groq-compatible facade that retries the next OpenAI endpoint."""
-
-    def __init__(self, api_key: str):
-        self.api_key = api_key
+    def __init__(self):
+        self.api_key = AI_API_KEY
         self.chat = self
         self.completions = self
+        self._client = OpenAI(
+            api_key=self.api_key or "ollama",
+            base_url=AI_BASE_URL,
+            default_headers={"Authorization": ""},
+        )
+        self.models = self._client.models
 
     def create(self, **kwargs):
-        urls = [os.getenv("AI_BASE_URL", "https://api.groq.com/openai/v1").rstrip("/")]
-        fallback = os.getenv("AI_FALLBACK_URL", "https://unorphaned-kate-suprasegmental.ngrok-free.dev/").rstrip("/")
-        if not fallback.endswith("/v1"):
-            fallback += "/v1"
-        if fallback not in urls:
-            urls.append(fallback)
-        last_error = None
-        for base_url in urls:
-            try:
-                return Groq(api_key=self.api_key, base_url=base_url).chat.completions.create(**kwargs)
-            except Exception as exc:
-                last_error = exc
-                logger.warning("AI endpoint failed (%s): %s", base_url, exc)
-        raise last_error
+        logger.info("Sending chat completion to %s", AI_BASE_URL)
+        return self._client.chat.completions.create(**kwargs)
 
 
-def _get_client() -> _FailoverClient:
-    """Return a client that tries the configured endpoint, then the fallback."""
-    return _FailoverClient(random.choice(API_KEYS))
+def _get_client() -> _AIClient:
+    """Return a client for the configured alternative model server."""
+    return _AIClient()
 
-def get_client() -> Groq:
+def get_client() -> _AIClient:
     """
-    Public key-rotating Groq client factory.
-    Imported by RAGService so it benefits from multi-key rotation
-    instead of using a single key.
+    Public OpenAI-compatible client factory.
 
     Usage:
         from app.utils.groq import get_client
@@ -96,15 +78,26 @@ def get_client() -> Groq:
     """
     return _get_client()
 
+
+def list_models() -> list[dict]:
+    """Return configured models, preferring the server's live model list."""
+    try:
+        models = get_client().models.list().data
+        if models:
+            return [
+                {"id": model.id, "object": "model", "owned_by": "alternative"}
+                for model in models
+            ]
+    except Exception as exc:
+        logger.warning("Could not fetch models from %s: %s", AI_BASE_URL, exc)
+    return [
+        {"id": model, "object": "model", "owned_by": "alternative"}
+        for model in AI_MODELS
+    ]
+
 # ============================================
 # CONFIG — Change models here if needed
 # ============================================
-
-TEXT_MODEL   = os.getenv("GROQ_MODEL",        "llama-3.3-70b-versatile")
-VISION_MODEL = os.getenv("GROQ_VISION_MODEL", "meta-llama/llama-4-scout-17b-16e-instruct")
-
-# Alias used by RAG.py (reads GROQ_MODEL env var; falls back to TEXT_MODEL)
-GROQ_MODEL = TEXT_MODEL
 
 # ============================================
 # TOOL REGISTRATION SYSTEM
@@ -118,7 +111,10 @@ def _augment_system_for_tools(system: str) -> str:
     hint = (
         "When calling tools, use the tool-calling interface with valid JSON arguments. "
         "Do not write <function=...> tags, brackets, or tool calls in plain text. "
-        "Return tool calls only via the tool-calling interface."
+        "Return tool calls only via the tool-calling interface. "
+        "You have access to NoorRobot tools; do not claim that you have no tools. "
+        "When the user asks what you can do, mention that tools are available and "
+        "use one when the request requires it."
     )
     if hint.lower() in system.lower():
         return system
@@ -157,7 +153,14 @@ def _select_tools(max_tools: int = 50, include_auto: bool = False, allowlist: li
     selected = core + (auto if include_auto else [])
     if len(selected) > max_tools:
         logger.warning("Tool list truncated: %d -> %d", len(selected), max_tools)
-        selected = selected[:max_tools]
+        priority_names = ("list_tools", "list_skills", "time_now")
+        priority = [
+            tool for name in priority_names
+            for tool in selected
+            if tool.get("function", {}).get("name") == name
+        ]
+        remaining = [tool for tool in selected if tool not in priority]
+        selected = (priority + remaining)[:max_tools]
     return selected
 
 def tool(name, description, params={}):
@@ -207,6 +210,7 @@ def tool(name, description, params={}):
         FUNCTIONS[name] = _wrapped
         def _relax_schema(p: dict):
             try:
+                p = {key: value for key, value in p.items() if key != "required"}
                 t = p.get("type")
                 if t in ("integer", "number"):
                     return {"anyOf": [p, {"type": "string"}]}
@@ -448,6 +452,8 @@ def vision(prompt, image, system="You are a helpful vision assistant.",
 def agent(
     user_input,
     system=f"You are {ASSISTANT_NAME}, an AI assistant. Use tools to complete tasks.",
+    history=None,
+    model=None,
     max_tokens=1024,
     temperature: float = 0.2,
     max_steps: int = 6,
@@ -480,8 +486,18 @@ def agent(
     client   = _get_client()   # pin one key for the whole session
     messages = [
         {"role": "system", "content": system},
-        {"role": "user",   "content": user_input},
     ]
+    if history:
+        messages.extend(history)
+    messages.append({"role": "user", "content": user_input})
+
+    prompt_lower = str(user_input).lower()
+    if tool_choice is None and "time_now" in FUNCTIONS and any(
+        phrase in prompt_lower
+        for phrase in ("what time", "current time", "right now")
+    ):
+        tool_choice = {"type": "function", "function": {"name": "time_now"}}
+        tool_allowlist = ["time_now"]
 
     # Convert Python None/Falsey values into valid API values.
     # Groq/OpenAI tool_choice accepts string values: none, auto, required
@@ -509,7 +525,7 @@ def agent(
         tools_payload = _select_tools(max_tools=max_tools, include_auto=include_auto_tools, allowlist=tool_allowlist) if (TOOLS and tools_enabled and tool_choice != "none") else None
         logger.info("groq.agent: calling API with tool_choice=%s tools=%s", tool_choice, tools_payload)
         response = client.chat.completions.create(
-            model=TEXT_MODEL,
+            model=model or TEXT_MODEL,
             messages=messages,
             tools=tools_payload,
             tool_choice=tool_choice,

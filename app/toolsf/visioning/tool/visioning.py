@@ -19,8 +19,13 @@ import threading
 import time
 import queue
 import base64
-import cv2
-import numpy as np
+
+try:
+    import cv2
+    import numpy as np
+except ModuleNotFoundError:
+    cv2 = None
+    np = None
 
 from app.utils.groq import tool
 
@@ -40,6 +45,10 @@ class DetectorSession:
     """Runs StreamReader + InferenceWorker + SmoothTracker in background."""
 
     def __init__(self, ip: str, port: int, model: str, alpha: float):
+        if cv2 is None or np is None:
+            raise RuntimeError(
+                "Vision tools require optional dependencies: install 'opencv-python' and 'ultralytics'."
+            )
         # Import from visioning.py living in the same package / directory
         from visioning import (
             StreamReader, InferenceWorker, SmoothTracker, DEVICE,
@@ -127,6 +136,8 @@ def startVision(
     alpha: float = 0.45,
 ) -> str:
     global _session
+    if cv2 is None or np is None:
+        return "error: vision tools require optional dependencies; install opencv-python and ultralytics"
     with _session_lock:
         if _session is not None:
             return "vision already running — call stop_vision first if you want to restart"

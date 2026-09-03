@@ -9,6 +9,7 @@ from colorama import Fore, Style
 from rich.logging import RichHandler
 
 from app.services.api import run
+from app.utils import groq as ai_utils
 
 
 def _import_toolsf():
@@ -49,7 +50,11 @@ def main():
     log.info("%sNoorRobot starting...%s", Fore.CYAN, Style.RESET_ALL)
 
     parser = argparse.ArgumentParser(description="Run NoorRobot API server.")
-    parser.add_argument("--host", default="127.0.0.1", help="Bind host (default 127.0.0.1)")
+    parser.add_argument(
+        "--host",
+        default="0.0.0.0",
+        help="Bind host (default 0.0.0.0; use 127.0.0.1 for local-only access)",
+    )
     parser.add_argument("--port", type=int, default=8000, help="Bind port (default 8000)")
     args = parser.parse_args()
 
@@ -62,6 +67,8 @@ def main():
     # Ensure all tools under app/toolsf are imported/registered
     _import_toolsf()
 
+    log.info("Using OpenAI-compatible AI server: %s", ai_utils.AI_BASE_URL)
+    log.info("Default AI model: %s", ai_utils.TEXT_MODEL)
     log.info("Starting API on %s:%s", args.host, args.port)
     run(host=args.host, port=args.port)
 

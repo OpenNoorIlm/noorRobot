@@ -273,26 +273,12 @@ HOW TO USE:
 
 #===============================================================================================================================================================================================================
 
-"""code
+"""Example usage:
 
 from app.utils.vectorStore import vector_store
 
 vector_store.load_or_build()          # once at startup
 context = vector_store.retrieve_text(user_message)
 # inject `context` into your Groq prompt as needed
-# call vector_store.build() again whenever you add new about-user or chat files to update the index"""
-
-
-"""
-=====================================================================
-__________________
-|                                /\              /         |                                                 
-|                               /  \            /          |                                                  
-|                              /    \          /           |                                                  
-|-----------------            /      \        /            |                                                    
-|                            /        \      /             |                                                    
-|                           /          \    /              |                                                      
-|                          /            \  /               |                                                      
-___________________       /              \/                |                                                                  
-                                                                          
+# call vector_store.build() again whenever you add new about-user or chat files to update the index
 """

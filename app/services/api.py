@@ -34,6 +34,7 @@ import json
 import logging
 import os
 import asyncio
+import time
 from typing import Any
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from urllib.parse import urlparse, parse_qs
@@ -41,6 +42,8 @@ from urllib.parse import urlparse, parse_qs
 from app.utils import groq as groq_utils
 from app.utils.RAG import rag, Message
 from app.utils.vectorStore import vector_store
+from app.utils.face_memory import list_faces, recognize_face, save_face
+from app.services import animations
 
 logger = logging.getLogger("NoorRobot.API")
 
@@ -68,6 +71,16 @@ def _json_response(handler: BaseHTTPRequestHandler, payload: dict, status: int =
     handler.send_header("Access-Control-Allow-Origin", CORS_ORIGIN)
     handler.send_header("Access-Control-Allow-Headers", "Content-Type, Authorization, X-API-Key")
     handler.send_header("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
+    handler.send_header("Content-Length", str(len(data)))
+    handler.end_headers()
+    handler.wfile.write(data)
+
+
+def _file_response(handler: BaseHTTPRequestHandler, path, content_type: str):
+    data = path.read_bytes()
+    handler.send_response(200)
+    handler.send_header("Content-Type", content_type)
+    handler.send_header("Access-Control-Allow-Origin", CORS_ORIGIN)
     handler.send_header("Content-Length", str(len(data)))
     handler.end_headers()
     handler.wfile.write(data)
@@ -157,6 +170,77 @@ class NoorAPIHandler(BaseHTTPRequestHandler):
                 },
             )
 
+        if path in ("/v1/models", "/models"):
+            return _json_response(self, {"object": "list", "data": [{"id": groq_utils.TEXT_MODEL, "object": "model", "owned_by": "noor"}]})
+
+        if path == "/memory/faces":
+            return _json_response(self, {"data": list_faces()})
+
+        if path == "/animations":
+            return _json_response(self, animations.list_animations(
+                eye_key=(qs.get("eye_key") or [None])[0],
+                mouth_key=(qs.get("mouth_key") or [None])[0],
+                anim_type=(qs.get("anim_type") or [None])[0],
+                limit=(qs.get("limit") or [50])[0],
+                offset=(qs.get("offset") or [0])[0],
+            ))
+
+        if path == "/animations/search":
+            results = animations.search_animations(
+                eye=(qs.get("eye") or [None])[0],
+                mouth=(qs.get("mouth") or [None])[0],
+            )
+            return _json_response(self, {"count": len(results), "results": results})
+
+        if path.startswith("/animation/"):
+            parts = path.split("/")
+            if len(parts) < 3:
+                return _json_response(self, {"error": "animation name required"}, status=400)
+            name = parts[2]
+            animation = animations.get_animation(name)
+            suffix = "/" + parts[-1] if len(parts) > 3 else ""
+            if suffix == "/video" or suffix == "/static":
+                file_path, content_type = animations.get_file(name, suffix[1:])
+                return _file_response(self, file_path, content_type)
+            if suffix == "/timeline":
+                return _json_response(self, {"name": name, "timeline": animation["timeline"]})
+            if suffix == "/description":
+                return _json_response(self, {"name": name, "description": animation["description"]})
+            if suffix == "/paths":
+                return _json_response(self, {"name": name, "video": animation["video"], "static": animation["static"], "video_url": f"/animation/{name}/video", "static_url": f"/animation/{name}/static"})
+            if suffix == "":
+                return _json_response(self, animation)
+            return _json_response(self, {"error": "not found"}, status=404)
+
+        if path == "/keys":
+            return _json_response(self, animations.keys())
+
+        if path == "/stats":
+            return _json_response(self, animations.stats())
+
+        if path == "/config":
+            return _json_response(self, animations.config())
+
+        if path in ("/keys/eye", "/keys/mouth", "/keys/anim_type"):
+            kind = path.split("/")[-1]
+            return _json_response(self, {f"{kind}_keys": animations.key_values(kind)})
+
+        if path.startswith("/keys/"):
+            parts = path.split("/")
+            if len(parts) >= 4:
+                kind, value = parts[2], parts[3]
+                if len(parts) == 4:
+                    return _json_response(self, {"key": value, "count": len(animations.key_animations(kind, value)), "animations": animations.key_animations(kind, value)})
+                if parts[4] == "animations":
+                    results = animations.key_animations(kind, value)
+                    return _json_response(self, {"count": len(results), "results": results})
+
+        if path.startswith("/keys/combo/"):
+            parts = path.split("/")
+            if len(parts) >= 4:
+                results = animations.combo(parts[2], parts[3])
+                return _json_response(self, {"count": len(results), "results": results})
+
         if path == "/tools/list":
             return _json_response(self, {"tools": sorted(groq_utils.FUNCTIONS.keys())})
 
@@ -189,6 +273,49 @@ class NoorAPIHandler(BaseHTTPRequestHandler):
             return
 
         try:
+            if path in ("/v1/chat/completions", "/chat/completions"):
+                messages = data.get("messages", [])
+                if not isinstance(messages, list) or not messages:
+                    return _json_response(self, {"error": {"message": "messages must be a non-empty array", "type": "invalid_request_error"}}, status=400)
+                if data.get("stream"):
+                    _send_sse_headers(self)
+                    for token in groq_utils.stream_chat(
+                        messages,
+                        max_tokens=int(data.get("max_tokens", 1024)),
+                        temperature=float(data.get("temperature", 0.7)),
+                        model=data.get("model"),
+                    ):
+                        if token:
+                            _sse_write(self, json.dumps({
+                                "id": "noor-chat-completion",
+                                "object": "chat.completion.chunk",
+                                "created": int(time.time()),
+                                "model": data.get("model") or groq_utils.TEXT_MODEL,
+                                "choices": [{"index": 0, "delta": {"role": "assistant", "content": token}, "finish_reason": None}],
+                            }))
+                    _sse_write(self, "[DONE]")
+                    return
+                reply = groq_utils.complete(
+                    messages,
+                    max_tokens=int(data.get("max_tokens", 1024)),
+                    temperature=float(data.get("temperature", 0.7)),
+                    model=data.get("model"),
+                )
+                return _json_response(self, {
+                    "id": "noor-chat-completion",
+                    "object": "chat.completion",
+                    "created": int(time.time()),
+                    "model": data.get("model") or groq_utils.TEXT_MODEL,
+                    "choices": [{"index": 0, "message": {"role": "assistant", "content": reply}, "finish_reason": "stop"}],
+                    "usage": {"prompt_tokens": 0, "completion_tokens": 0, "total_tokens": 0},
+                })
+
+            if path == "/memory/faces/save":
+                return _json_response(self, save_face(str(data.get("label", "")), data.get("image", "")))
+
+            if path == "/memory/faces/recognize":
+                return _json_response(self, recognize_face(data.get("image", "")))
+
             if path == "/chat":
                 prompt = data.get("prompt", "")
                 system = data.get("system", f"You are {groq_utils.ASSISTANT_NAME}, a helpful assistant.")

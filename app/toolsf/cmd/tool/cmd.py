@@ -5,6 +5,7 @@ logger = logging.getLogger("NoorRobot.Tools.cmd.cmd")
 logger.debug("Loaded tool module: cmd.cmd")
 
 import subprocess
+import os
 import threading
 import queue
 import time
@@ -14,6 +15,10 @@ from app.utils.groq import tool
 _proc: subprocess.Popen | None = None
 _q: "queue.Queue[str]" = queue.Queue()
 _reader_thread: threading.Thread | None = None
+
+
+def _shell() -> str:
+    return "cmd.exe" if os.name == "nt" else "/bin/bash"
 
 
 def _reader_loop(proc: subprocess.Popen):
@@ -29,7 +34,7 @@ def _start_cmd():
     if _proc is not None and _proc.poll() is None:
         return
     _proc = subprocess.Popen(
-        ["cmd.exe"],
+        [_shell()],
         stdin=subprocess.PIPE,
         stdout=subprocess.PIPE,
         stderr=subprocess.STDOUT,
@@ -74,7 +79,8 @@ def cmd_run(command: str, timeout: int | None = None) -> str:
 
     token = f"__END_{uuid.uuid4().hex}__"
     _proc.stdin.write(f"{command}\n")
-    _proc.stdin.write(f"echo {token}\n")
+    marker_command = f"echo {token}" if os.name == "nt" else f"printf '%s\\n' '{token}'"
+    _proc.stdin.write(f"{marker_command}\n")
     _proc.stdin.flush()
 
     deadline = time.time() + (timeout if timeout is not None else 30)
@@ -122,5 +128,5 @@ def cmd_close() -> str:
     },
 )
 def cmd_run_once(command: str, timeout: int | None = None):
-    res = subprocess.run(["cmd.exe", "/c", command], capture_output=True, text=True, timeout=timeout)
+    res = subprocess.run(command, shell=True, executable=_shell(), capture_output=True, text=True, timeout=timeout)
     return {"exit_code": res.returncode, "stdout": res.stdout, "stderr": res.stderr}

@@ -54,9 +54,34 @@ def _load_api_keys():
 API_KEYS = _load_api_keys()
 logger.info("Loaded %d API key(s)", len(API_KEYS))
 
-def _get_client() -> Groq:
-    """Returns a Groq client with a randomly chosen API key (internal)."""
-    return Groq(api_key=random.choice(API_KEYS))
+class _FailoverClient:
+    """Small Groq-compatible facade that retries the next OpenAI endpoint."""
+
+    def __init__(self, api_key: str):
+        self.api_key = api_key
+        self.chat = self
+        self.completions = self
+
+    def create(self, **kwargs):
+        urls = [os.getenv("AI_BASE_URL", "https://api.groq.com/openai/v1").rstrip("/")]
+        fallback = os.getenv("AI_FALLBACK_URL", "https://unorphaned-kate-suprasegmental.ngrok-free.dev/").rstrip("/")
+        if not fallback.endswith("/v1"):
+            fallback += "/v1"
+        if fallback not in urls:
+            urls.append(fallback)
+        last_error = None
+        for base_url in urls:
+            try:
+                return Groq(api_key=self.api_key, base_url=base_url).chat.completions.create(**kwargs)
+            except Exception as exc:
+                last_error = exc
+                logger.warning("AI endpoint failed (%s): %s", base_url, exc)
+        raise last_error
+
+
+def _get_client() -> _FailoverClient:
+    """Return a client that tries the configured endpoint, then the fallback."""
+    return _FailoverClient(random.choice(API_KEYS))
 
 def get_client() -> Groq:
     """

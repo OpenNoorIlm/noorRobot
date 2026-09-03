@@ -4,10 +4,11 @@ import logging
 logger = logging.getLogger("NoorRobot.Tools.noor_face_anim.noor_face_anim")
 logger.debug("Loaded tool module: noor_face_anim.noor_face_anim")
 
+import os
 import requests as _requests
 from app.utils.groq import tool
 
-_BASE = "http://localhost:8000"
+_BASE = os.getenv("NOOR_API_URL", "http://127.0.0.1:8000").rstrip("/")
 
 
 def _get(path: str, params: dict | None = None):

@@ -180,9 +180,41 @@ GROQ_API_KEY=your_groq_api_key_here
 NOOR_API_KEY=your_api_key_for_auth
 NOOR_CORS_ORIGIN=*
 GROQ_MODEL=llama-3.3-70b-versatile
+AI_BASE_URL=https://api.groq.com/openai/v1
+AI_FALLBACK_URL=https://unorphaned-kate-suprasegmental.ngrok-free.dev/
 RAG_MAX_CTX=6000
 RAG_THRESHOLD=0.25
 ```
+
+NoorRobot also accepts standard OpenAI requests at `POST /v1/chat/completions`
+and `GET /v1/models`. Set `OPENAI_API_KEY` or `AI_API_KEY` when the selected
+gateway requires a key. `AI_BASE_URL` is tried first and `AI_FALLBACK_URL` is
+tried automatically when it fails. Face memory is available at
+`/memory/faces/save` and `/memory/faces/recognize`; only SHA-256 and perceptual
+hashes are persisted, never the submitted image.
+
+### Open WebUI Tool
+
+Import `openWebUi.py` into Open WebUI as a Tool. Set its `noorrobot_url` valve
+to `http://127.0.0.1:8000` when NoorRobot runs on the same computer, or to the
+server's LAN/HTTPS URL when it runs elsewhere. The tool only sends requests to
+the existing NoorRobot server; it never starts a second server.
+
+Face animations from `noorRoboteyesAnim` are bundled under
+`app/database/animations`. The NoorRobot server exposes their catalog at
+`/animations`, metadata at `/animation/{name}`, media at
+`/animation/{name}/video` and `/animation/{name}/static`, and key/statistics
+routes at `/keys` and `/stats`. Set `NOOR_ANIMATIONS_DIR` to override the local
+data directory.
+
+### ESP32-OS Bridge
+
+The ESP32-OS source is bundled under `hardware/esp32-os` without generated
+build directories. Set `ESP32_URL` to the device URL, for example
+`http://192.168.1.50:8083`, before starting NoorRobot. The registered bridge
+tools provide TFT eye expressions, movement, stop, sensor reads, and firmware
+help through the ESP32-OS HTTP API. Eye commands support the ESP32-OS emotion
+styles and x/y offsets used by its animated TFT renderer.
 
 ## � Hardware Setup
 

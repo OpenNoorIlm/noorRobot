@@ -309,7 +309,7 @@ class InferenceWorker(threading.Thread):
         print(f"[YOLO] Model file: {model_path}")
         model = YOLO(model_path)
 
-        # ONNX provider selection: AMD Vega via DirectML, CPU fallback
+        # ONNX provider selection: CPU only
         is_onnx = model_path.endswith(".onnx")
         if is_onnx:
             import onnxruntime as ort

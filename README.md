@@ -186,6 +186,9 @@ RAG_MAX_CTX=6000
 RAG_THRESHOLD=0.25
 ```
 
+The Python requirements use the CPU-only PyTorch wheel. They do not install
+CUDA, NVIDIA, ROCm, or torchvision packages.
+
 NoorRobot also accepts standard OpenAI requests at `POST /v1/chat/completions`
 and `GET /v1/models`. Set `OPENAI_API_KEY` or `AI_API_KEY` when the selected
 gateway requires a key. `AI_BASE_URL` is tried first and `AI_FALLBACK_URL` is
@@ -1525,6 +1528,5 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 **Noor 🤖** - Bridging Islamic Knowledge with Robotics 🤖🕌
 
-# Note Will Release The Arduino Esp32 Esp32-CAM boards code folders soon!
 ---
 # See the folder structure/code to understand more about this code as this documentation is created by AI.

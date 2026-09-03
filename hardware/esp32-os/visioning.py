@@ -5,9 +5,9 @@
 ╚══════════════════════════════════════════════════════════════════╝
 
 Install deps (run once):
-    pip install ultralytics opencv-python numpy torch torchvision
-    # For CUDA GPU support use:
-    pip install torch torchvision --index-url https://download.pytorch.org/whl/cu121
+    pip install ultralytics opencv-python numpy
+    # NoorRobot uses CPU-only inference; install torch from the CPU wheel index:
+    pip install torch --index-url https://download.pytorch.org/whl/cpu
 
 Usage:
     python esp32_detector.py --ip 192.168.1.42 --port 8082
@@ -29,14 +29,9 @@ import math
 try:
     import torch
     TORCH_AVAILABLE = True
-    if torch.cuda.is_available():
-        DEVICE = "cuda"
-        GPU_NAME = torch.cuda.get_device_name(0)
-        VRAM_GB  = torch.cuda.get_device_properties(0).total_memory / 1e9
-    else:
-        DEVICE = "cpu"
-        GPU_NAME = "None"
-        VRAM_GB  = 0
+    DEVICE = "cpu"
+    GPU_NAME = "None"
+    VRAM_GB = 0
 except ImportError:
     TORCH_AVAILABLE = False
     DEVICE = "cpu"
@@ -321,15 +316,8 @@ class InferenceWorker(threading.Thread):
             providers = ort.get_available_providers()
             print(f"[ONNX] Available providers: {providers}")
 
-            if "DmlExecutionProvider" in providers:
-                use_providers = ["DmlExecutionProvider", "CPUExecutionProvider"]
-                print("[ONNX] ✓ Using AMD GPU via DirectML + CPU fallback")
-            elif "CUDAExecutionProvider" in providers:
-                use_providers = ["CUDAExecutionProvider", "CPUExecutionProvider"]
-                print("[ONNX] Using NVIDIA CUDA + CPU fallback")
-            else:
-                use_providers = ["CPUExecutionProvider"]
-                print("[ONNX] Using CPU only")
+            use_providers = ["CPUExecutionProvider"]
+            print("[ONNX] Using CPU only")
 
             # Apply providers directly to the onnxruntime session inside YOLO
             import onnxruntime as ort_rt
@@ -406,13 +394,7 @@ def main():
     # Detect best available provider for display
     try:
         import onnxruntime as ort
-        _providers = ort.get_available_providers()
-        if "DmlExecutionProvider" in _providers:
-            device_str = "AMD GPU (DirectML)"
-        elif "CUDAExecutionProvider" in _providers:
-            device_str = f"NVIDIA CUDA"
-        else:
-            device_str = "CPU"
+        device_str = "CPU"
     except:
         device_str = "CPU"
 

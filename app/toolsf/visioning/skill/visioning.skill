@@ -80,5 +80,5 @@ Dependencies:
 - visioning.py (same directory)
 - ultralytics (pip install ultralytics)
 - opencv-python (pip install opencv-python)
-- torch / torchvision (pip install torch torchvision)
+- torch CPU wheel (pip install torch --index-url https://download.pytorch.org/whl/cpu)
 - ESP32-CAM flashed with esp32-cam.ino serving /stream on port 8082

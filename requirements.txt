@@ -19,6 +19,9 @@ langchain-community
 langchain-core
 faiss-cpu
 sentence-transformers
+# CPU-only PyTorch: prevents CUDA, NVIDIA, and ROCm packages from being resolved.
+--extra-index-url https://download.pytorch.org/whl/cpu
+torch==2.14.0+cpu
 colorama
 rich
 tabulate

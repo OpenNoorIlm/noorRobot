@@ -7,7 +7,8 @@
 
 Depends on:
     visioning.py (same directory)
-    pip install ultralytics opencv-python numpy torch torchvision
+    pip install ultralytics opencv-python numpy
+    pip install torch --index-url https://download.pytorch.org/whl/cpu
 
 The detector runs in a background thread.  Tools allow the agent to
 start and stop it, query which objects are currently visible, move

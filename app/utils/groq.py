@@ -121,7 +121,7 @@ def _augment_system_for_tools(system: str) -> str:
     return system.rstrip() + "\n\n" + hint
 
 
-def _select_tools(max_tools: int = 50, include_auto: bool = False, allowlist: list[str] | None = None):
+def _select_tools(max_tools: int = 400, include_auto: bool = False, allowlist: list[str] | None = None):
     """
     Return a pruned tool list to satisfy API limits.
     Prioritize non-auto_ tools, then auto_ tools if space remains.
@@ -460,7 +460,7 @@ def agent(
     max_return_context: int = 4000,
     *,
     include_auto_tools: bool = False,
-    max_tools: int = 50,
+    max_tools: int = 400,
     tool_allowlist: list[str] | None = None,
     tool_choice: str | dict | None = None,
 ) -> str:

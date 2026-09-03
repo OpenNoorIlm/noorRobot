@@ -291,6 +291,7 @@ class NoorAPIHandler(BaseHTTPRequestHandler):
                             max_tokens=int(data.get("max_tokens", 1024)),
                             temperature=float(data.get("temperature", 0.7)),
                             max_steps=int(data.get("max_steps", 6)),
+                            max_tools=int(data.get("max_tools", 400)),
                         )
                         _send_sse_headers(self)
                         _sse_write(self, json.dumps({
@@ -330,6 +331,7 @@ class NoorAPIHandler(BaseHTTPRequestHandler):
                     max_tokens=int(data.get("max_tokens", 1024)),
                     temperature=float(data.get("temperature", 0.7)),
                     max_steps=int(data.get("max_steps", 6)),
+                    max_tools=int(data.get("max_tools", 400)),
                 )
                 return _json_response(self, {
                     "id": "noor-chat-completion",
@@ -576,39 +578,8 @@ def run(host: str = "0.0.0.0", port: int = 8000):
         logger.error("Error during vector store setup: %s", e)
         _VECTOR_READY = False
 
-    # Try a simple test first
-    logger.info("Testing basic server setup...")
-    try:
-        from http.server import HTTPServer, BaseHTTPRequestHandler
-
-        class TestHandler(BaseHTTPRequestHandler):
-            def do_GET(self):
-                if self.path == "/test":
-                    self.send_response(200)
-                    self.send_header("Content-Type", "text/plain")
-                    self.end_headers()
-                    self.wfile.write(b"Server is working!")
-                else:
-                    self.send_response(404)
-                    self.end_headers()
-
-        test_server = HTTPServer((host, int(port)), TestHandler)
-        logger.info("Test server running on http://%s:%s", host, port)
-        logger.info("Test with: curl http://%s:%s/test", host, port)
-
-        # Run for 5 seconds to test
-        import time
-        start_time = time.time()
-        while time.time() - start_time < 5:
-            test_server.handle_request()
-
-        test_server.server_close()
-        logger.info("Test server completed successfully")
-
-    except Exception as e:
-        logger.error("Test server failed: %s", e)
-
-    # Now try the real server
+    # Start the real API immediately so clients never receive a temporary 501
+    # response from a startup-only test handler.
     try:
         logger.info("Starting main NoorRobot API server...")
         server = ThreadingHTTPServer((host, int(port)), NoorAPIHandler)

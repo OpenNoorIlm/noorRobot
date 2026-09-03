@@ -161,6 +161,7 @@ def _select_tools(max_tools: int = 400, include_auto: bool = False, allowlist: l
         ]
         remaining = [tool for tool in selected if tool not in priority]
         selected = (priority + remaining)[:max_tools]
+    logger.info("Providing %d tools to the model", len(selected))
     return selected
 
 def tool(name, description, params={}):

@@ -291,7 +291,7 @@ class NoorAPIHandler(BaseHTTPRequestHandler):
                             max_tokens=int(data.get("max_tokens", 1024)),
                             temperature=float(data.get("temperature", 0.7)),
                             max_steps=int(data.get("max_steps", 6)),
-                            max_tools=max(400, int(data.get("max_tools", 400))),
+                            max_tools=max(40, int(data.get("max_tools", 40))),
                         )
                         _send_sse_headers(self)
                         _sse_write(self, json.dumps({
@@ -331,7 +331,7 @@ class NoorAPIHandler(BaseHTTPRequestHandler):
                     max_tokens=int(data.get("max_tokens", 1024)),
                     temperature=float(data.get("temperature", 0.7)),
                     max_steps=int(data.get("max_steps", 6)),
-                    max_tools=max(400, int(data.get("max_tools", 400))),
+                    max_tools=max(40, int(data.get("max_tools", 40))),
                 )
                 return _json_response(self, {
                     "id": "noor-chat-completion",

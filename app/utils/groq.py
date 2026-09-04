@@ -121,7 +121,7 @@ def _augment_system_for_tools(system: str) -> str:
     return system.rstrip() + "\n\n" + hint
 
 
-def _select_tools(max_tools: int = 400, include_auto: bool = False, allowlist: list[str] | None = None):
+def _select_tools(max_tools: int = 40, include_auto: bool = False, allowlist: list[str] | None = None, query: str = ""):
     """
     Return a pruned tool list to satisfy API limits.
     Prioritize non-auto_ tools, then auto_ tools if space remains.
@@ -151,9 +151,19 @@ def _select_tools(max_tools: int = 400, include_auto: bool = False, allowlist: l
         else:
             core.append(t)
     selected = core + (auto if include_auto else [])
+    if allowlist is None and query:
+        terms = {term for term in query.lower().replace("_", " ").split() if len(term) > 2}
+        discovery = {"list_tools", "load_tools", "tool_info", "tool_call"}
+        ranked = [
+            item for item in selected
+            if item.get("function", {}).get("name") in discovery
+            or any(term in (item.get("function", {}).get("name", "") + " " + item.get("function", {}).get("description", "")).lower() for term in terms)
+        ]
+        if ranked:
+            selected = ranked
     if len(selected) > max_tools:
         logger.warning("Tool list truncated: %d -> %d", len(selected), max_tools)
-        priority_names = ("list_tools", "list_skills", "time_now")
+        priority_names = ("list_tools", "load_tools", "tool_info", "tool_call", "list_skills", "time_now")
         priority = [
             tool for name in priority_names
             for tool in selected
@@ -493,6 +503,15 @@ def agent(
     messages.append({"role": "user", "content": user_input})
 
     prompt_lower = str(user_input).lower()
+    capability_query = any(
+        phrase in prompt_lower
+        for phrase in ("which tools", "what tools", "list tools", "tools can you see", "tools do you have")
+    )
+    if capability_query:
+        messages = [messages[0], messages[-1]]
+        if "list_tools" in FUNCTIONS:
+            tool_choice = {"type": "function", "function": {"name": "list_tools"}}
+            tool_allowlist = ["list_tools"]
     if tool_choice is None and "time_now" in FUNCTIONS and any(
         phrase in prompt_lower
         for phrase in ("what time", "current time", "right now")
@@ -520,10 +539,19 @@ def agent(
     )
 
     tool_steps = 0
+    loaded_tools: set[str] = set()
     tools_enabled = True
     last_tool_output = None
     while True:
-        tools_payload = _select_tools(max_tools=max_tools, include_auto=include_auto_tools, allowlist=tool_allowlist) if (TOOLS and tools_enabled and tool_choice != "none") else None
+        active_allowlist = None
+        if tool_allowlist or loaded_tools:
+            active_allowlist = sorted(set(tool_allowlist or []) | loaded_tools | {"list_tools", "load_tools", "tool_info", "tool_call"})
+        tools_payload = _select_tools(
+            max_tools=max_tools,
+            include_auto=include_auto_tools,
+            allowlist=active_allowlist,
+            query=user_input if active_allowlist is None else "",
+        ) if (TOOLS and tools_enabled and tool_choice != "none") else None
         logger.info("groq.agent: calling API with tool_choice=%s tools=%s", tool_choice, tools_payload)
         response = client.chat.completions.create(
             model=model or TEXT_MODEL,
@@ -543,6 +571,8 @@ def agent(
             args   = json.loads(call.function.arguments) if call.function.arguments else {}
             func   = FUNCTIONS.get(call.function.name)
             output = func(**args) if func and args is not None else f"Tool '{call.function.name}' not found or invalid args!"
+            if call.function.name == "load_tools" and isinstance(output, dict):
+                loaded_tools.update(str(name) for name in output.get("tools", []))
             last_tool_output = output
             logger.info("[Tool] 🔧 %s(%s) → %s", call.function.name, args, output)
             content = str(output)

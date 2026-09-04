@@ -1,5 +1,5 @@
 from pathlib import Path
-from app.utils.groq import tool
+from app.utils.groq import tool, FUNCTIONS, TOOLS
 from app.utils.face_memory import list_faces, recognize_face, save_face
 
 BASE_DIR = Path(__file__).resolve().parent
@@ -27,21 +27,40 @@ def list_face_memory():
     return list_faces()
 
 
+def _tool_matches(query: str = ""):
+    terms = {term for term in query.lower().replace("_", " ").split() if len(term) > 1}
+    matches = []
+    descriptions = {
+        item.get("function", {}).get("name", ""): item.get("function", {}).get("description", "")
+        for item in TOOLS
+    }
+    for schema in FUNCTIONS:
+        text = (schema + " " + descriptions.get(schema, "")).lower().replace("_", " ")
+        if not terms or any(term in text for term in terms):
+            matches.append(schema)
+    return sorted(matches)
+
+
 @tool(
     name="list_tools",
-    description="List available tool modules.",
-    params={}
+    description="List registered NoorRobot tools matching an optional query. Use query 'all' to list every tool.",
+    params={
+        "query": {"type": "string", "description": "Topic or tool name, or 'all'"},
+        "limit": {"type": "integer", "description": "Maximum names to return"},
+    },
 )
-def list_tools():
-    if not UTILS_DIR.exists() and not TOOLSF_DIR.exists():
-        raise FileNotFoundError(
-            f"Tools directories not found: {UTILS_DIR} and {TOOLSF_DIR}"
-        )
-    tool_files = []
-    if UTILS_DIR.exists():
-        tool_files.extend(UTILS_DIR.glob("*/tool/*.py"))
-    if TOOLSF_DIR.exists():
-        tool_files.extend(TOOLSF_DIR.glob("*/tool/*.py"))
-    return sorted(
-        [p.stem for p in tool_files if p.is_file() and not p.name.startswith("_")]
-    )
+def list_tools(query: str = "", limit: int = 40):
+    names = _tool_matches("" if query.strip().lower() == "all" else query)
+    return names[:max(1, min(int(limit), len(names) or 1))]
+
+
+@tool(
+    name="load_tools",
+    description="Find tools for a task and return the matching tool names. Call this before using a specialized tool that is not currently visible.",
+    params={
+        "query": {"type": "string", "description": "Task or category, such as email, ESP32, ringtone, calendar, or files"},
+        "limit": {"type": "integer", "description": "Maximum names to return"},
+    },
+)
+def load_tools(query: str, limit: int = 40):
+    return {"query": query, "tools": _tool_matches(query)[:max(1, min(int(limit), 80))]}

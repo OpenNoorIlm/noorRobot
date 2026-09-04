@@ -52,6 +52,18 @@ CORS_ORIGIN = os.getenv("NOOR_CORS_ORIGIN", "*")
 _VECTOR_READY = False
 
 
+def _wants_tools(prompt: str, request: dict) -> bool:
+    if request.get("tools") or request.get("use_tools") is True:
+        return True
+    text = prompt.lower()
+    return any(word in text for word in (
+        "use the", "call the", "run the", "send an email", "email ",
+        "check the esp32", "esp32", "ringtone", "schedule", "search the web",
+        "list tools", "what tools", "which tools", "take a picture",
+        "what time", "current time", "time is it", "right now",
+    ))
+
+
 def _read_json(handler: BaseHTTPRequestHandler) -> dict:
     length = int(handler.headers.get("Content-Length", "0"))
     raw = handler.rfile.read(length) if length > 0 else b"{}"
@@ -117,7 +129,7 @@ def _send_sse_headers(handler: BaseHTTPRequestHandler):
     handler.send_response(200)
     handler.send_header("Content-Type", "text/event-stream; charset=utf-8")
     handler.send_header("Cache-Control", "no-cache")
-    handler.send_header("Connection", "keep-alive")
+    handler.send_header("Connection", "close")
     handler.send_header("X-Accel-Buffering", "no")
     handler.send_header("Access-Control-Allow-Origin", CORS_ORIGIN)
     handler.send_header("Access-Control-Allow-Headers", "Content-Type, Authorization, X-API-Key")
@@ -278,11 +290,26 @@ class NoorAPIHandler(BaseHTTPRequestHandler):
                 messages = data.get("messages", [])
                 if not isinstance(messages, list) or not messages:
                     return _json_response(self, {"error": {"message": "messages must be a non-empty array", "type": "invalid_request_error"}}, status=400)
+                user_message = messages[-1].get("content", "")
+                use_tools = _wants_tools(user_message, data)
                 if data.get("stream"):
-                    if data.get("tools") or data.get("use_tools", True):
+                    if use_tools:
                         history = [message for message in messages[:-1] if message.get("role") != "system"]
                         system = next((message.get("content", "") for message in messages if message.get("role") == "system"), f"You are {groq_utils.ASSISTANT_NAME}, an AI assistant. Use tools to complete tasks.")
-                        user_message = messages[-1].get("content", "")
+                        _send_sse_headers(self)
+
+                        def _tool_progress(name, args, result):
+                            result_text = str(result)
+                            if len(result_text) > 500:
+                                result_text = result_text[:500] + "..."
+                            _sse_write(self, json.dumps({
+                                "id": "noor-tool-progress",
+                                "object": "chat.completion.chunk",
+                                "created": int(time.time()),
+                                "model": data.get("model") or groq_utils.TEXT_MODEL,
+                                "choices": [{"index": 0, "delta": {"role": "assistant", "content": f"\n[Tool: {name}]\n{result_text}\n"}, "finish_reason": None}],
+                            }))
+
                         reply = groq_utils.agent(
                             user_message,
                             system=system,
@@ -292,8 +319,8 @@ class NoorAPIHandler(BaseHTTPRequestHandler):
                             temperature=float(data.get("temperature", 0.7)),
                             max_steps=int(data.get("max_steps", 6)),
                             max_tools=max(40, int(data.get("max_tools", 40))),
+                            on_tool=_tool_progress,
                         )
-                        _send_sse_headers(self)
                         _sse_write(self, json.dumps({
                             "id": "noor-chat-completion",
                             "object": "chat.completion.chunk",
@@ -320,6 +347,21 @@ class NoorAPIHandler(BaseHTTPRequestHandler):
                             }))
                     _sse_write(self, "[DONE]")
                     return
+                if not use_tools:
+                    reply = groq_utils.complete(
+                        messages,
+                        max_tokens=int(data.get("max_tokens", 1024)),
+                        temperature=float(data.get("temperature", 0.7)),
+                        model=data.get("model"),
+                    )
+                    return _json_response(self, {
+                        "id": "noor-chat-completion",
+                        "object": "chat.completion",
+                        "created": int(time.time()),
+                        "model": data.get("model") or groq_utils.TEXT_MODEL,
+                        "choices": [{"index": 0, "message": {"role": "assistant", "content": reply}, "finish_reason": "stop"}],
+                        "usage": {"prompt_tokens": 0, "completion_tokens": 0, "total_tokens": 0},
+                    })
                 history = [message for message in messages[:-1] if message.get("role") != "system"]
                 system = next((message.get("content", "") for message in messages if message.get("role") == "system"), f"You are {groq_utils.ASSISTANT_NAME}, an AI assistant. Use tools to complete tasks.")
                 user_message = messages[-1].get("content", "")

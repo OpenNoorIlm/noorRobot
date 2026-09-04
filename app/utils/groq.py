@@ -161,6 +161,13 @@ def _select_tools(max_tools: int = 40, include_auto: bool = False, allowlist: li
         ]
         if ranked:
             selected = ranked
+        else:
+            selected = [
+                item for item in selected
+                if item.get("function", {}).get("name") in {
+                    "list_tools", "load_tools", "tool_info", "tool_call"
+                }
+            ]
     if len(selected) > max_tools:
         logger.warning("Tool list truncated: %d -> %d", len(selected), max_tools)
         priority_names = ("list_tools", "load_tools", "tool_info", "tool_call", "list_skills", "time_now")
@@ -474,6 +481,7 @@ def agent(
     max_tools: int = 400,
     tool_allowlist: list[str] | None = None,
     tool_choice: str | dict | None = None,
+    on_tool=None,
 ) -> str:
     """
     Agentic loop: keeps calling registered tools until the task is complete.
@@ -570,10 +578,19 @@ def agent(
         for call in msg.tool_calls:
             args   = json.loads(call.function.arguments) if call.function.arguments else {}
             func   = FUNCTIONS.get(call.function.name)
-            output = func(**args) if func and args is not None else f"Tool '{call.function.name}' not found or invalid args!"
+            if not func or args is None:
+                output = f"Tool '{call.function.name}' not found or invalid args!"
+            else:
+                try:
+                    output = func(**args)
+                except Exception as exc:
+                    output = f"Tool '{call.function.name}' failed: {exc}"
+                    logger.exception("Tool execution failed: %s", call.function.name)
             if call.function.name == "load_tools" and isinstance(output, dict):
                 loaded_tools.update(str(name) for name in output.get("tools", []))
             last_tool_output = output
+            if on_tool:
+                on_tool(call.function.name, args, output)
             logger.info("[Tool] 🔧 %s(%s) → %s", call.function.name, args, output)
             content = str(output)
             if max_return_context and len(content) > max_return_context:

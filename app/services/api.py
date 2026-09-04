@@ -53,7 +53,9 @@ _VECTOR_READY = False
 
 
 def _wants_tools(prompt: str, request: dict) -> bool:
-    if request.get("tools") or request.get("use_tools") is True:
+    if request.get("use_tools") is False:
+        return False
+    if request.get("force_tool") is True:
         return True
     text = prompt.lower()
     return any(word in text for word in (

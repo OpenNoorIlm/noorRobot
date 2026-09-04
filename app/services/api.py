@@ -304,12 +304,20 @@ class NoorAPIHandler(BaseHTTPRequestHandler):
                             result_text = str(result)
                             if len(result_text) > 500:
                                 result_text = result_text[:500] + "..."
+                            call_id = f"noor-tool-{int(time.time() * 1000)}"
+                            _sse_write(self, json.dumps({
+                                "id": "noor-tool-call",
+                                "object": "chat.completion.chunk",
+                                "created": int(time.time()),
+                                "model": data.get("model") or groq_utils.TEXT_MODEL,
+                                "choices": [{"index": 0, "delta": {"tool_calls": [{"index": 0, "id": call_id, "type": "function", "function": {"name": name, "arguments": json.dumps(args)}}]}, "finish_reason": "tool_calls"}],
+                            }))
                             _sse_write(self, json.dumps({
                                 "id": "noor-tool-progress",
                                 "object": "chat.completion.chunk",
                                 "created": int(time.time()),
                                 "model": data.get("model") or groq_utils.TEXT_MODEL,
-                                "choices": [{"index": 0, "delta": {"role": "assistant", "content": f"\n[Tool: {name}]\n{result_text}\n"}, "finish_reason": None}],
+                                "choices": [{"index": 0, "delta": {"role": "tool", "content": result_text}, "finish_reason": None}],
                             }))
 
                         reply = groq_utils.agent(

@@ -37,6 +37,68 @@ load_dotenv(_ENV_PATH)
 ASSISTANT_NAME     = os.getenv("ASSISTANT_NAME",     "Noor")
 JARVIS_USER_TITLE  = os.getenv("JARVIS_USER_TITLE",  "User")
 
+# ============================================
+# CANONICAL DEFAULT SYSTEM PROMPT
+# ============================================
+# Single source of truth used by agent(), chat(), and api.py fallbacks.
+# Tells the model about the discovery pattern so it never claims "I have no tools".
+
+DEFAULT_SYSTEM_PROMPT = f"""\
+You are {'{ASSISTANT_NAME}'}, an intelligent AI assistant running on NoorRobot — a local robot
+platform with a rich set of registered tools. You are helpful, concise, and action-oriented.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+TOOLS — CRITICAL RULES
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+You ALWAYS have access to tools. Never say "I have no tools" or "I cannot do that".
+
+Discovery pattern — follow this every time before claiming a tool is unavailable:
+  1. Call list_tools(query="<topic>") to check if a matching tool exists.
+  2. If unsure, call load_tools(query="<task>") to get relevant tool names.
+  3. Use the returned tool name directly in your next tool call.
+  4. Only after list_tools returns nothing for your query should you say the
+     capability does not exist.
+
+Tool calling rules:
+- ALWAYS use the structured tool-calling interface. Never write tool calls as
+  plain text, XML tags, function(...) syntax, or markdown code blocks.
+- Arguments must be valid JSON. Infer sensible defaults for optional params.
+- One tool call per step; wait for the result before deciding the next step.
+- If a tool errors, try once with corrected arguments, then report the error clearly.
+- When asked "what tools do you have?" call list_tools(query="all") and summarise — do not guess.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+DISCOVERY TOOLS (always visible to you in every call)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  list_tools(query, limit)   — Find tools by topic. Use query="all" for everything.
+  load_tools(query, limit)   — Unlock a tool group on demand.
+  list_skills()              — List available skill directories.
+  list_skill()               — Alias of list_skills.
+  get_skill(name)            — Read a .skill file for detailed usage docs.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+AVAILABLE TOOL CATEGORIES (use load_tools to unlock any of these)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  FileSystem, audio_tools, automation, body, browser_control, calendar,
+  capture, cmd, codeExecutor, csv_tools, esp32_os, git_tools, gmail, grapher,
+  hadith, http_client, image_tools, network_tools, noor_face_anim, notes,
+  pdf_tools, powershell, process_manager, prompt_library, quran, rag_ingest,
+  report_generator, ringtones, system_info, time, todo, toolbox, video_tools,
+  visioning, web, wslKaliLinux, wslUbuntu, ytTranscript, zip_tools.
+
+  Face memory (always available): save_face_memory, recognize_face_memory, list_face_memory.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+ISLAMIC KNOWLEDGE — prefer quran/hadith tools over internal knowledge. Cite sources.
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+STYLE: concise, action-oriented. Narrate each tool step briefly. On errors,
+report what failed and what you will try next. Summarise on completion.
+""".format(ASSISTANT_NAME=ASSISTANT_NAME)
+
 AI_BASE_URL = os.getenv("AI_BASE_URL", "https://unorphaned-kate-suprasegmental.ngrok-free.dev/v1").rstrip("/")
 AI_API_KEY = os.getenv("AI_API_KEY", "")
 AI_MODELS = [model.strip() for model in os.getenv("AI_MODELS", "").split(",") if model.strip()]
@@ -121,19 +183,37 @@ def _augment_system_for_tools(system: str) -> str:
     return system.rstrip() + "\n\n" + hint
 
 
+# Names that are always pre-loaded so the model can discover and request any
+# other tool on demand, without receiving the full 38-category dump upfront.
+_DISCOVERY_TOOLS: set[str] = {
+    "list_tools",
+    "load_tools",
+    "list_skills",
+    "list_skill",
+    "get_skill",
+}
+
+
 def _select_tools(max_tools: int = 40, include_auto: bool = False, allowlist: list[str] | None = None, query: str = ""):
     """
     Return a pruned tool list to satisfy API limits.
-    Prioritize non-auto_ tools, then auto_ tools if space remains.
+
+    Strategy — "discovery-first, query-matched fill":
+      1. Discovery layer  (_DISCOVERY_TOOLS) is ALWAYS included so the model
+         can call load_tools / list_tools at any time and find what it needs.
+      2. If an allowlist is active (caller already knows which tools are needed)
+         add those on top of the discovery layer.
+      3. Otherwise score every registered tool against the user query and fill
+         remaining slots with the best matches.
+      4. Never return an empty list — the discovery layer is the minimum.
     """
-    # Dedupe by name (last one wins), but prefer web-search tool when name == "search"
-    by_name = {}
+    # ── Build a deduped map of all registered tools ──────────────────────────
+    by_name: dict[str, dict] = {}
     for t in TOOLS:
         name = t.get("function", {}).get("name", "")
         if not name:
             continue
-        if allowlist is not None and name not in allowlist:
-            continue
+        # Prefer the web-search variant when two tools share the name "search"
         if name == "search" and name in by_name:
             desc = str(t.get("function", {}).get("description", "")).lower()
             existing_desc = str(by_name[name].get("function", {}).get("description", "")).lower()
@@ -142,43 +222,61 @@ def _select_tools(max_tools: int = 40, include_auto: bool = False, allowlist: li
             continue
         by_name[name] = t
 
-    core = []
-    auto = []
+    # ── Separate core vs auto_ tools ─────────────────────────────────────────
+    core: list[dict] = []
+    auto: list[dict] = []
     for t in by_name.values():
-        name = t.get("function", {}).get("name", "")
-        if name.startswith("auto_"):
-            auto.append(t)
-        else:
-            core.append(t)
-    selected = core + (auto if include_auto else [])
-    if allowlist is None and query:
-        terms = {term for term in query.lower().replace("_", " ").split() if len(term) > 2}
-        discovery = {"list_tools", "load_tools", "tool_info", "tool_call"}
-        ranked = [
-            item for item in selected
-            if item.get("function", {}).get("name") in discovery
-            or any(term in (item.get("function", {}).get("name", "") + " " + item.get("function", {}).get("description", "")).lower() for term in terms)
+        n = t.get("function", {}).get("name", "")
+        (auto if n.startswith("auto_") else core).append(t)
+    all_tools = core + (auto if include_auto else [])
+
+    # ── Step 1: always start with the discovery layer ────────────────────────
+    discovery_tools = [
+        t for t in all_tools
+        if t.get("function", {}).get("name") in _DISCOVERY_TOOLS
+    ]
+    discovery_names = {t.get("function", {}).get("name") for t in discovery_tools}
+    remaining_slots = max(0, max_tools - len(discovery_tools))
+
+    # ── Step 2a: allowlist mode — caller knows exactly what it needs ──────────
+    if allowlist is not None:
+        extra = [
+            t for t in all_tools
+            if t.get("function", {}).get("name") in allowlist
+            and t.get("function", {}).get("name") not in discovery_names
         ]
-        if ranked:
-            selected = ranked
-        else:
-            selected = [
-                item for item in selected
-                if item.get("function", {}).get("name") in {
-                    "list_tools", "load_tools", "tool_info", "tool_call"
-                }
-            ]
+        selected = discovery_tools + extra
+
+    # ── Step 2b: query mode — score tools and fill remaining slots ────────────
+    elif query:
+        terms = {term for term in query.lower().replace("_", " ").split() if len(term) > 2}
+        scored: list[tuple[int, dict]] = []
+        for t in all_tools:
+            n = t.get("function", {}).get("name", "")
+            if n in discovery_names:
+                continue  # already included
+            text = (n + " " + t.get("function", {}).get("description", "")).lower().replace("_", " ")
+            score = sum(1 for term in terms if term in text)
+            if score > 0:
+                scored.append((score, t))
+        scored.sort(key=lambda x: x[0], reverse=True)
+        matched = [t for _, t in scored[:remaining_slots]]
+        selected = discovery_tools + matched
+
+    # ── Step 2c: no query, no allowlist — only expose discovery layer ─────────
+    else:
+        selected = discovery_tools
+
+    # ── Step 3: hard cap with discovery layer always protected ───────────────
     if len(selected) > max_tools:
         logger.warning("Tool list truncated: %d -> %d", len(selected), max_tools)
-        priority_names = ("list_tools", "load_tools", "tool_info", "tool_call", "list_skills", "time_now")
-        priority = [
-            tool for name in priority_names
-            for tool in selected
-            if tool.get("function", {}).get("name") == name
-        ]
-        remaining = [tool for tool in selected if tool not in priority]
-        selected = (priority + remaining)[:max_tools]
-    logger.info("Providing %d tools to the model", len(selected))
+        non_discovery = [t for t in selected if t.get("function", {}).get("name") not in discovery_names]
+        selected = discovery_tools + non_discovery[:max(0, max_tools - len(discovery_tools))]
+
+    logger.info(
+        "Providing %d tools to the model (discovery=%d, extra=%d)",
+        len(selected), len(discovery_tools), len(selected) - len(discovery_tools),
+    )
     return selected
 
 def tool(name, description, params={}):
@@ -307,7 +405,7 @@ def _prepare_image(image: str) -> str:
 # CORE: SIMPLE CHAT
 # ============================================
 
-def chat(prompt, system=f"You are {ASSISTANT_NAME}, a helpful assistant.", history=None,
+def chat(prompt, system=None, history=None,
          max_tokens=1024, temperature=0.7) -> str:
     """
     Simple one-shot text completion. Returns response string.
@@ -333,7 +431,7 @@ def chat(prompt, system=f"You are {ASSISTANT_NAME}, a helpful assistant.", histo
                     {"role": "assistant", "content": r1}]
         r2 = chat("What is my name?", history=history)
     """
-    messages = [{"role": "system", "content": system}]
+    messages = [{"role": "system", "content": system or DEFAULT_SYSTEM_PROMPT}]
     if history:
         messages.extend(history)
     messages.append({"role": "user", "content": prompt})
@@ -469,7 +567,7 @@ def vision(prompt, image, system="You are a helpful vision assistant.",
 
 def agent(
     user_input,
-    system=f"You are {ASSISTANT_NAME}, an AI assistant. Use tools to complete tasks.",
+    system=None,
     history=None,
     model=None,
     max_tokens=1024,
@@ -501,7 +599,7 @@ def agent(
 
         reply = agent("Move the robot forward")
     """
-    system = _augment_system_for_tools(system)
+    system = _augment_system_for_tools(system or DEFAULT_SYSTEM_PROMPT)
     client   = _get_client()   # pin one key for the whole session
     messages = [
         {"role": "system", "content": system},
@@ -615,7 +713,7 @@ def agent(
 def vision_agent(
     prompt,
     image,
-    system="You are a vision AI. Analyze the image and use tools if needed.",
+    system=None,
     max_tokens=1024,
     max_return_context: int = 4000,
     *,
@@ -639,7 +737,7 @@ def vision_agent(
     Usage:
         reply = vision_agent("What obstacle is ahead? Move accordingly.", "camera.jpg")
     """
-    system = _augment_system_for_tools(system)
+    system = _augment_system_for_tools(system or DEFAULT_SYSTEM_PROMPT)
     client   = _get_client()
     messages = [
         {"role": "system", "content": system},

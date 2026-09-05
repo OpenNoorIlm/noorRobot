@@ -40,6 +40,7 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from urllib.parse import urlparse, parse_qs
 
 from app.utils import groq as groq_utils
+from app.utils.groq import DEFAULT_SYSTEM_PROMPT
 from app.utils.RAG import rag, Message
 from app.utils.vectorStore import vector_store
 from app.utils.face_memory import list_faces, recognize_face, save_face
@@ -53,17 +54,16 @@ _VECTOR_READY = False
 
 
 def _wants_tools(prompt: str, request: dict) -> bool:
+    # Explicit opt-out: caller passed use_tools=false
     if request.get("use_tools") is False:
         return False
+    # Explicit opt-in: caller forced it
     if request.get("force_tool") is True:
         return True
-    text = prompt.lower()
-    return any(word in text for word in (
-        "use the", "call the", "run the", "send an email", "email ",
-        "check the esp32", "esp32", "ringtone", "schedule", "search the web",
-        "list tools", "what tools", "which tools", "take a picture",
-        "what time", "current time", "time is it", "right now",
-    ))
+    # Default to True — always route through the agent so the discovery
+    # layer (list_tools / load_tools) is always available to the model.
+    # Callers that want plain chat must pass use_tools=false explicitly.
+    return True
 
 
 def _read_json(handler: BaseHTTPRequestHandler) -> dict:
@@ -297,7 +297,7 @@ class NoorAPIHandler(BaseHTTPRequestHandler):
                 if data.get("stream"):
                     if use_tools:
                         history = [message for message in messages[:-1] if message.get("role") != "system"]
-                        system = next((message.get("content", "") for message in messages if message.get("role") == "system"), f"You are {groq_utils.ASSISTANT_NAME}, an AI assistant. Use tools to complete tasks.")
+                        system = next((message.get("content", "") for message in messages if message.get("role") == "system"), DEFAULT_SYSTEM_PROMPT)
                         _send_sse_headers(self)
 
                         def _tool_progress(name, args, result):
@@ -373,7 +373,7 @@ class NoorAPIHandler(BaseHTTPRequestHandler):
                         "usage": {"prompt_tokens": 0, "completion_tokens": 0, "total_tokens": 0},
                     })
                 history = [message for message in messages[:-1] if message.get("role") != "system"]
-                system = next((message.get("content", "") for message in messages if message.get("role") == "system"), f"You are {groq_utils.ASSISTANT_NAME}, an AI assistant. Use tools to complete tasks.")
+                system = next((message.get("content", "") for message in messages if message.get("role") == "system"), DEFAULT_SYSTEM_PROMPT)
                 user_message = messages[-1].get("content", "")
                 reply = groq_utils.agent(
                     user_message,
@@ -402,7 +402,7 @@ class NoorAPIHandler(BaseHTTPRequestHandler):
 
             if path == "/chat":
                 prompt = data.get("prompt", "")
-                system = data.get("system", f"You are {groq_utils.ASSISTANT_NAME}, a helpful assistant.")
+                system = data.get("system") or DEFAULT_SYSTEM_PROMPT
                 history = data.get("history", [])
                 max_tokens = int(data.get("max_tokens", 1024))
                 temperature = float(data.get("temperature", 0.7))
@@ -457,7 +457,7 @@ class NoorAPIHandler(BaseHTTPRequestHandler):
 
             if path == "/chat/stream":
                 prompt = data.get("prompt", "")
-                system = data.get("system", f"You are {groq_utils.ASSISTANT_NAME}, a helpful assistant.")
+                system = data.get("system") or DEFAULT_SYSTEM_PROMPT
                 history = data.get("history", [])
                 max_tokens = int(data.get("max_tokens", 1024))
                 temperature = float(data.get("temperature", 0.7))
@@ -474,7 +474,7 @@ class NoorAPIHandler(BaseHTTPRequestHandler):
 
             if path == "/agent":
                 user_input = data.get("input", "")
-                system = data.get("system", f"You are {groq_utils.ASSISTANT_NAME}, an AI assistant. Use tools to complete tasks.")
+                system = data.get("system") or DEFAULT_SYSTEM_PROMPT
                 max_tokens = int(data.get("max_tokens", 1024))
                 max_return_context = int(data.get("max_return_context", 4000))
                 reply = groq_utils.agent(
@@ -492,7 +492,7 @@ class NoorAPIHandler(BaseHTTPRequestHandler):
             if path == "/vision":
                 prompt = data.get("prompt", "")
                 image = data.get("image", "")
-                system = data.get("system", "You are a helpful vision assistant.")
+                system = data.get("system") or DEFAULT_SYSTEM_PROMPT
                 max_tokens = int(data.get("max_tokens", 1024))
                 reply = groq_utils.vision(prompt, image, system=system, max_tokens=max_tokens)
                 return _json_response(self, {"reply": reply})
@@ -500,7 +500,7 @@ class NoorAPIHandler(BaseHTTPRequestHandler):
             if path == "/vision/agent":
                 prompt = data.get("prompt", "")
                 image = data.get("image", "")
-                system = data.get("system", "You are a vision AI. Analyze the image and use tools if needed.")
+                system = data.get("system") or DEFAULT_SYSTEM_PROMPT
                 max_tokens = int(data.get("max_tokens", 1024))
                 max_return_context = int(data.get("max_return_context", 4000))
                 reply = groq_utils.vision_agent(

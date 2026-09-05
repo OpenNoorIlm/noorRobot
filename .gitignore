@@ -1,1 +1,37 @@
-.env 
+# Environment
+.env
+.env.*
+
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+.Python
+
+# Virtual environment
+.venv/
+venv/
+env/
+
+# Logs
+*.log
+smart_start.log
+
+# VS Code
+.vscode/
+
+# Database / vector store
+app/database/
+
+# Cache
+.cache/
+*.cache
+
+# Test artifacts
+test_code.json
+test_code2.json
+
+# OS
+.DS_Store
+Thumbs.db

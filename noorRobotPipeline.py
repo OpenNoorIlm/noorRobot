@@ -32,7 +32,7 @@ from typing import Any, Generator, Iterator, Union
 from urllib.parse import urlparse
 
 import requests
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, validator
 
 
 # ---------------------------------------------------------------------------
@@ -49,6 +49,10 @@ class Pipeline:
             default="",
             description="Optional NOOR_API_KEY set on the NoorRobot server",
         )
+
+        @validator('noorrobot_api_key', pre=True, always=True)
+        def coerce_api_key(cls, v):
+            return v or ""
         request_timeout: int = Field(
             default=120,
             description="HTTP timeout in seconds for non-streaming requests",

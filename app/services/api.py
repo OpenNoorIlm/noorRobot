@@ -140,10 +140,13 @@ def _send_sse_headers(handler: BaseHTTPRequestHandler):
 
 
 def _sse_write(handler: BaseHTTPRequestHandler, data: str, event: str | None = None):
-    if event:
-        handler.wfile.write(f"event: {event}\n".encode("utf-8"))
-    handler.wfile.write(f"data: {data}\n\n".encode("utf-8"))
-    handler.wfile.flush()
+    try:
+        if event:
+            handler.wfile.write(f"event: {event}\n".encode("utf-8"))
+        handler.wfile.write(f"data: {data}\n\n".encode("utf-8"))
+        handler.wfile.flush()
+    except (BrokenPipeError, ConnectionResetError):
+        pass  # Client disconnected — ignore silently
 
 
 class NoorAPIHandler(BaseHTTPRequestHandler):
@@ -302,22 +305,29 @@ class NoorAPIHandler(BaseHTTPRequestHandler):
 
                         def _tool_progress(name, args, result):
                             result_text = str(result)
-                            if len(result_text) > 500:
-                                result_text = result_text[:500] + "..."
-                            call_id = f"noor-tool-{int(time.time() * 1000)}"
+                            if len(result_text) > 2000:
+                                result_text = result_text[:2000] + "..."
+                            # Render as <details> content block — NOT delta.tool_calls
+                            # delta.tool_calls triggers Open WebUI's retry loop
+                            import html as _html
+                            args_str = json.dumps(args, ensure_ascii=False)
+                            res_escaped = _html.escape(result_text)
+                            args_escaped = _html.escape(args_str)
+                            details_block = (
+                                f'<details type="tool_calls" done="true" '
+                                f'id="call_{int(time.time()*1000)}" '
+                                f'name="{_html.escape(name)}" '
+                                f'arguments="{args_escaped}">\n'
+                                f'<summary>{_html.escape(name)}</summary>\n'
+                                f'{res_escaped}\n'
+                                f'</details>\n'
+                            )
                             _sse_write(self, json.dumps({
-                                "id": "noor-tool-call",
+                                "id": f"noor-tool-{int(time.time()*1000)}",
                                 "object": "chat.completion.chunk",
                                 "created": int(time.time()),
                                 "model": data.get("model") or groq_utils.TEXT_MODEL,
-                                "choices": [{"index": 0, "delta": {"tool_calls": [{"index": 0, "id": call_id, "type": "function", "function": {"name": name, "arguments": json.dumps(args)}}]}, "finish_reason": "tool_calls"}],
-                            }))
-                            _sse_write(self, json.dumps({
-                                "id": "noor-tool-progress",
-                                "object": "chat.completion.chunk",
-                                "created": int(time.time()),
-                                "model": data.get("model") or groq_utils.TEXT_MODEL,
-                                "choices": [{"index": 0, "delta": {"role": "tool", "content": result_text}, "finish_reason": None}],
+                                "choices": [{"index": 0, "delta": {"content": details_block}, "finish_reason": None}],
                             }))
 
                         reply = groq_utils.agent(
@@ -477,6 +487,13 @@ class NoorAPIHandler(BaseHTTPRequestHandler):
                 system = data.get("system") or DEFAULT_SYSTEM_PROMPT
                 max_tokens = int(data.get("max_tokens", 1024))
                 max_return_context = int(data.get("max_return_context", 4000))
+                return_trace = bool(data.get("return_trace", False))
+
+                trace: list[dict] = []
+
+                def _collect_trace(name, args, result):
+                    trace.append({"name": name, "args": args, "result": result})
+
                 reply = groq_utils.agent(
                     user_input,
                     system=system,
@@ -486,8 +503,12 @@ class NoorAPIHandler(BaseHTTPRequestHandler):
                     include_auto_tools=bool(data.get("include_auto_tools", False)),
                     max_tools=int(data.get("max_tools", 50)),
                     tool_allowlist=data.get("tool_allowlist"),
+                    on_tool=_collect_trace if return_trace else None,
                 )
-                return _json_response(self, {"reply": reply})
+                response = {"reply": reply}
+                if return_trace:
+                    response["trace"] = trace
+                return _json_response(self, response)
 
             if path == "/vision":
                 prompt = data.get("prompt", "")

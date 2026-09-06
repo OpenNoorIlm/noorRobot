@@ -48,35 +48,43 @@ You are {'{ASSISTANT_NAME}'}, an intelligent AI assistant running on NoorRobot �
 platform with a rich set of registered tools. You are helpful, concise, and action-oriented.
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-TOOLS — CRITICAL RULES
+TOOLS — WHEN TO USE THEM
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-You ALWAYS have access to tools. Never say "I have no tools" or "I cannot do that".
+Only call tools when the user asks you to DO something or GET something.
+Never call tools for greetings, casual conversation, or simple questions
+you can answer from knowledge.
 
-Discovery pattern — follow this every time before claiming a tool is unavailable:
-  1. Call list_tools(query="<topic>") to check if a matching tool exists.
-  2. If unsure, call load_tools(query="<task>") to get relevant tool names.
-  3. Use the returned tool name directly in your next tool call.
-  4. Only after list_tools returns nothing for your query should you say the
-     capability does not exist.
+Examples of when NOT to use tools:
+  "Hello", "How are you?", "What is 2+2?", "Tell me about Islam"
+
+Examples of when to USE tools:
+  "Check my Gmail", "What time is it?", "List my notes", "Take a screenshot"
+  "Do you have access to gmail?", "What tools do you have?"
+
+Discovery pattern — only when a tool is needed and you are unsure which one:
+  1. Call list_tools(query="<topic>") to find matching tool names.
+  2. Call tool_info(tool_name="<name>") to get EXACT parameter names before calling it.
+  3. Call the tool using ONLY the parameter names returned by tool_info.
+  4. Never guess parameter names — always check tool_info first.
+  5. Only say a capability doesn't exist after list_tools returns nothing.
 
 Tool calling rules:
-- ALWAYS use the structured tool-calling interface. Never write tool calls as
-  plain text, XML tags, function(...) syntax, or markdown code blocks.
-- Arguments must be valid JSON. Infer sensible defaults for optional params.
-- One tool call per step; wait for the result before deciding the next step.
-- If a tool errors, try once with corrected arguments, then report the error clearly.
-- When asked "what tools do you have?" call list_tools(query="all") and summarise — do not guess.
+- Use ONLY the structured JSON tool-calling interface (OpenAI function-calling format).
+- NEVER write tool calls as plain text, XML tags like <function=name>, or markdown.
+- If you write a tool call as text instead of using the interface, it will NOT execute.
+- One tool call per step; wait for the result before the next step.
+- If a tool errors, try once with corrected arguments, then report the error.
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-DISCOVERY TOOLS (always visible to you in every call)
+DISCOVERY TOOLS (available when needed)
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
   list_tools(query, limit)   — Find tools by topic. Use query="all" for everything.
   load_tools(query, limit)   — Unlock a tool group on demand.
+  tool_info(tool_name)       — Get EXACT parameter names for a tool. Use before calling any tool.
   list_skills()              — List available skill directories.
-  list_skill()               — Alias of list_skills.
-  get_skill(name)            — Read a .skill file for detailed usage docs.
+  get_skill(name)            — Read a skill file for detailed usage docs.
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 AVAILABLE TOOL CATEGORIES (use load_tools to unlock any of these)
@@ -89,13 +97,14 @@ AVAILABLE TOOL CATEGORIES (use load_tools to unlock any of these)
   report_generator, ringtones, system_info, time, todo, toolbox, video_tools,
   visioning, web, wslKaliLinux, wslUbuntu, ytTranscript, zip_tools.
 
-  Face memory (always available): save_face_memory, recognize_face_memory, list_face_memory.
+  Face memory: save_face_memory, recognize_face_memory, list_face_memory.
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 ISLAMIC KNOWLEDGE — prefer quran/hadith tools over internal knowledge. Cite sources.
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-STYLE: concise, action-oriented. Narrate each tool step briefly. On errors,
+STYLE: concise, action-oriented. For greetings and simple questions, respond
+naturally without calling any tools. Narrate each tool step briefly. On errors,
 report what failed and what you will try next. Summarise on completion.
 """.format(ASSISTANT_NAME=ASSISTANT_NAME)
 
@@ -185,12 +194,18 @@ def _augment_system_for_tools(system: str) -> str:
 
 # Names that are always pre-loaded so the model can discover and request any
 # other tool on demand, without receiving the full 38-category dump upfront.
+# Tools that must NEVER be sent to the model — they cause feedback loops
+_BLACKLISTED_TOOLS: set[str] = {
+    "tool_list",   # dumps all 200+ tool names raw — model loops on this forever
+    "tool_call",   # generic wrapper that bypasses proper tool calling
+}
+
 _DISCOVERY_TOOLS: set[str] = {
     "list_tools",
     "load_tools",
     "list_skills",
-    "list_skill",
     "get_skill",
+    "tool_info",
 }
 
 
@@ -212,6 +227,9 @@ def _select_tools(max_tools: int = 40, include_auto: bool = False, allowlist: li
     for t in TOOLS:
         name = t.get("function", {}).get("name", "")
         if not name:
+            continue
+        # Never expose blacklisted tools to the model
+        if name in _BLACKLISTED_TOOLS:
             continue
         # Prefer the web-search variant when two tools share the name "search"
         if name == "search" and name in by_name:
@@ -572,7 +590,7 @@ def agent(
     model=None,
     max_tokens=1024,
     temperature: float = 0.2,
-    max_steps: int = 6,
+    max_steps: int = 3,
     max_return_context: int = 4000,
     *,
     include_auto_tools: bool = False,
@@ -601,6 +619,23 @@ def agent(
     """
     system = _augment_system_for_tools(system or DEFAULT_SYSTEM_PROMPT)
     client   = _get_client()   # pin one key for the whole session
+
+    # ── Detect conversational messages that need no tools ─────────────────────
+    _CONVERSATION_PATTERNS = (
+        "hello", "hi ", "hi!", "hey", "howdy", "greetings",
+        "how are you", "what's up", "whats up", "good morning",
+        "good afternoon", "good evening", "good night",
+        "thank you", "thanks", "bye", "goodbye", "see you",
+    )
+    _prompt_stripped = str(user_input).strip().lower()
+    _is_conversational = (
+        _prompt_stripped in ("hello", "hi", "hey", "thanks", "bye", "goodbye", "ok", "okay")
+        or any(_prompt_stripped.startswith(p) for p in _CONVERSATION_PATTERNS)
+    ) and len(_prompt_stripped) < 60
+
+    if _is_conversational:
+        # Skip agent loop entirely — plain chat is faster and cleaner
+        return chat(user_input, system=system, max_tokens=max_tokens, temperature=temperature)
     messages = [
         {"role": "system", "content": system},
     ]
@@ -686,6 +721,10 @@ def agent(
                     logger.exception("Tool execution failed: %s", call.function.name)
             if call.function.name == "load_tools" and isinstance(output, dict):
                 loaded_tools.update(str(name) for name in output.get("tools", []))
+            # list_tools also reveals tool names — add them to loaded set
+            # so the model can call them in the next step
+            if call.function.name == "list_tools" and isinstance(output, list):
+                loaded_tools.update(str(n) for n in output)
             last_tool_output = output
             if on_tool:
                 on_tool(call.function.name, args, output)
@@ -703,8 +742,75 @@ def agent(
         if forced_tool and tool_steps >= 1:
             tool_choice = "none"
             tools_enabled = False
+        # Track failures in this step
+        failed_in_this_call: set[str] = set()
+        succeeded_in_this_call: set[str] = set()
+        for call in (msg.tool_calls or []):
+            content_str = ""
+            for m in messages:
+                if isinstance(m, dict) and m.get("role") == "tool" and m.get("tool_call_id") == call.id:
+                    content_str = m.get("content", "")
+                    break
+            if content_str.startswith("Tool '") and "failed" in content_str:
+                failed_in_this_call.add(call.function.name)
+            else:
+                succeeded_in_this_call.add(call.function.name)
+
+        # If all tools succeeded and task looks complete, stop immediately
+        # Only for action tools (play, send, delete...) not query tools that need follow-up
+        _ACTION_TOOLS = {
+            "ringtone_play", "ringtone_stop", "ringtone_schedule",
+            "gmail_send", "gmail_delete", "gmail_mark_read", "gmail_mark_unread", "gmail_move",
+            "note_add", "note_delete", "note_update",
+            "todo_add", "todo_done", "todo_delete",
+            "calendar_create_event", "calendar_delete_event",
+            "capture_screen", "auto_click", "auto_type", "auto_hotkey",
+            "forward", "backward", "left", "right", "stop",
+            "check_eyes", "clear_eyes", "esp32_eyes", "esp32_move",
+            "write_file", "edit_file", "delete_path", "move_file", "copy_path",
+            "execute_code", "execute_file", "cmd_run_once",
+        }
+        is_action = bool(succeeded_in_this_call & _ACTION_TOOLS)
+        if is_action and not failed_in_this_call and tool_steps >= 1:
+            messages.append({"role": "user", "content": (
+                "Task complete. Give the user a single short sentence confirming what was done. "
+                "Do not call any more tools."
+            )})
+            summary_resp = client.chat.completions.create(
+                model=model or TEXT_MODEL,
+                messages=messages,
+                max_tokens=256,
+                temperature=temperature,
+            )
+            return summary_resp.choices[0].message.content or ""
+
+        # If tools failed, cut short after 2 attempts
+        if failed_in_this_call and tool_steps >= 2:
+            messages.append({"role": "user", "content": (
+                "The tool(s) " + ", ".join(failed_in_this_call) + " failed. "
+                "Stop trying to call them again. "
+                "Summarise what happened clearly and concisely for the user."
+            )})
+            summary_resp = client.chat.completions.create(
+                model=model or TEXT_MODEL,
+                messages=messages,
+                max_tokens=max_tokens,
+                temperature=temperature,
+            )
+            return summary_resp.choices[0].message.content or ""
         if tool_steps >= max_steps:
-            return str(last_tool_output) if last_tool_output is not None else "⚠️ Tool loop limit reached."
+            messages.append({"role": "user", "content": (
+                "You have completed " + str(tool_steps) + " tool steps. "
+                "Stop calling tools now and give the user a clear, concise summary of what you found or did. "
+                "Do not mention tool names or errors unless relevant to the user."
+            )})
+            summary_resp = client.chat.completions.create(
+                model=model or TEXT_MODEL,
+                messages=messages,
+                max_tokens=max_tokens,
+                temperature=temperature,
+            )
+            return summary_resp.choices[0].message.content or str(last_tool_output)
 
 # ============================================
 # VISION AGENT  (image + tool calling)
